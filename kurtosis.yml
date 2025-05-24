@@ -1,0 +1,3 @@
+name: provenance-package
+description: A Kurtosis package for spinning up a private Provenance blockchain testnet
+maintainer: til@bloctopus.io
