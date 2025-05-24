@@ -65,7 +65,7 @@ def launch_bdjuno(plan, chain_name, denom, block_explorer_config):
     bdjuno_service = plan.add_service(
         name="{}-bdjuno".format(chain_name),
         config=ServiceConfig(
-            image="forbole/bdjuno:v4.0.0",
+            image="coreumfoundation/bdjuno:latest",
             files={
                 "/root/.bdjuno": bdjuno_config_file
             },
@@ -83,7 +83,7 @@ def launch_bdjuno(plan, chain_name, denom, block_explorer_config):
     hasura_service = plan.add_service(
         name="{}-hasura".format(chain_name),
         config=ServiceConfig(
-            image="hasura/graphql-engine:v2.16.1",
+            image="coreumfoundation/hasura:latest",
             ports={
                 "http": PortSpec(number=8080, transport_protocol="TCP", wait=None)
             },
