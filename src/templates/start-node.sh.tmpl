@@ -36,18 +36,20 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
     # Use jq for more reliable JSON manipulation
     if command -v jq >/dev/null 2>&1; then
         echo "Using jq to fix marker parameters..."
-        jq '.app_state.marker.params.max_supply = "18446744073709551615" | .app_state.marker.params.max_total_supply = "18446744073709551615"' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
+        jq '.app_state.marker.params.max_supply = "18446744073709551615" | .app_state.marker.params.max_total_supply = "18446744073709551615" | .app_state.marker.params.unrestricted_denom_regex = "[a-zA-Z][a-zA-Z0-9]{2,127}"' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
         if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
             mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
         else
             echo "ERROR: jq produced empty output, falling back to sed"
             sed -i 's/"max_supply": "[0-9]*"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
             sed -i 's/"max_total_supply": "[0-9]*"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+            sed -i 's/"unrestricted_denom_regex": "[^"]*"/"unrestricted_denom_regex": "[a-zA-Z][a-zA-Z0-9]{2,127}"/g' {{ .config_folder }}/genesis.json || echo "unrestricted_denom_regex fix failed with code $?"
         fi
     else
         echo "jq not found, using sed for marker parameter fixes..."
         sed -i 's/"max_supply": "[0-9]*"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
         sed -i 's/"max_total_supply": "[0-9]*"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+        sed -i 's/"unrestricted_denom_regex": "[^"]*"/"unrestricted_denom_regex": "[a-zA-Z][a-zA-Z0-9]{2,127}"/g' {{ .config_folder }}/genesis.json || echo "unrestricted_denom_regex fix failed with code $?"
     fi
     
     # Verify the fix was applied
