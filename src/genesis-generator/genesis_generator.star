@@ -218,8 +218,13 @@ def generate_genesis_files(plan, parsed_args):
         # Set module parameters in genesis file
         for module, params in chain["modules"].items():
             for param, value in params.items():
+                # Handle different value types for jq
                 if type(value) == "string" and not value.startswith('"'):
                     value = '"{}"'.format(value)
+                elif value == True:
+                    value = "true"
+                elif value == False:
+                    value = "false"
                 
                 plan.exec(
                     service_name="{}-genesis-generator".format(chain_name),
