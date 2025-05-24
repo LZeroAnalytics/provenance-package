@@ -210,7 +210,7 @@ def generate_genesis_files(plan, parsed_args):
                     command=[
                         "/bin/sh",
                         "-c",
-                        "cat /root/.provenance/config/genesis.json | jq '.consensus_params.block.{} = {}' > /tmp/genesis.json && mv /tmp/genesis.json /root/.provenance/config/genesis.json".format(param, value)
+                        "cat /home/provenance/config/genesis.json | jq '.consensus_params.block.{} = {}' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json".format(param, value)
                     ]
                 )
             )
@@ -227,7 +227,7 @@ def generate_genesis_files(plan, parsed_args):
                         command=[
                             "/bin/sh",
                             "-c",
-                            "cat /root/.provenance/config/genesis.json | jq '.app_state.{}.params.{} = {}' > /tmp/genesis.json && mv /tmp/genesis.json /root/.provenance/config/genesis.json".format(module, param, value)
+                            "cat /home/provenance/config/genesis.json | jq '.app_state.{}.params.{} = {}' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json".format(module, param, value)
                         ]
                     )
                 )
