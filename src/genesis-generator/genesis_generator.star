@@ -244,24 +244,16 @@ def generate_genesis_files(plan, parsed_args):
                     )
                 )
         
-        # Copy the genesis file
-        genesis_file = plan.exec(
+        # Store the genesis file
+        genesis_file = plan.store_service_files(
             service_name="{}-genesis-generator".format(chain_name),
-            recipe=ExecRecipe(
-                command=[
-                    "/bin/sh",
-                    "-c",
-                    "cat /root/.provenance/config/genesis.json"
-                ],
-                extract={
-                    "genesis_content": ".+"
-                }
-            )
+            src="/root/.provenance/config/genesis.json",
+            name="{}-genesis-file".format(chain_name)
         )
         
         # Store the genesis data
         genesis_files[chain_name] = {
-            "genesis_file": genesis_file["extract.genesis_content"],
+            "genesis_file": genesis_file,
             "addresses": addresses,
             "mnemonics": mnemonics,
             "faucet": {
