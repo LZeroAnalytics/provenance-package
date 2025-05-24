@@ -103,6 +103,19 @@ def generate_genesis_files(plan, parsed_args):
                 
                 # Create validator transaction if staking is enabled
                 if participant["staking"]:
+                    # Clear existing gentx directory for subsequent validators
+                    if node_index > 1:
+                        plan.exec(
+                            service_name="{}-genesis-generator".format(chain_name),
+                            recipe=ExecRecipe(
+                                command=[
+                                    "/bin/sh",
+                                    "-c",
+                                    "rm -f /home/provenance/config/gentx/*.json"
+                                ]
+                            )
+                        )
+                    
                     plan.exec(
                         service_name="{}-genesis-generator".format(chain_name),
                         recipe=ExecRecipe(
