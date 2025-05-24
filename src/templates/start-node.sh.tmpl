@@ -66,11 +66,11 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
             .app_state.mint.params.goal_bonded = "0.670000000000000000" | 
             .app_state.mint.params.annual_provisions = "0.000000000000000000" | 
             .app_state.mint.params.inflation = "0.100000000000000000" |
-            .app_state.gov.params.deposit_params.min_deposit[0].amount = "10000000" | 
-            .app_state.gov.params.voting_params.voting_period = "172800s" | 
-            .app_state.gov.params.tally_params.quorum = "0.334000000000000000" | 
-            .app_state.gov.params.tally_params.threshold = "0.500000000000000000" | 
-            .app_state.gov.params.tally_params.veto_threshold = "0.334000000000000000" | 
+            .app_state.gov.params.min_deposit[0].amount = "10000000" | 
+            .app_state.gov.params.voting_period = "172800s" | 
+            .app_state.gov.params.quorum = "0.334000000000000000" | 
+            .app_state.gov.params.threshold = "0.500000000000000000" | 
+            .app_state.gov.params.veto_threshold = "0.334000000000000000" | 
             .app_state.consensus_params.block.max_gas = "-1" | 
             .app_state.consensus_params.block.max_bytes = "22020096"' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
         if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
