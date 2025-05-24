@@ -317,7 +317,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /home/provenance/config/genesis.json | jq '.app_state.mint.minter.inflation = \"0.000000000000000000\" | .app_state.mint.minter.annual_provisions = \"1.000000000000000000\" | .app_state.mint.params.mint_denom = \"nhash\" | .app_state.mint.params.blocks_per_year = \"6311520\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.mint.minter.inflation = \"0.000000000000000000\" | .app_state.mint.minter.annual_provisions = \"1.000000000000000000\" | .app_state.mint.params.mint_denom = \"nhash\" | .app_state.mint.params.blocks_per_year = \"6311520\" | .app_state.mint.params.inflation_rate_change = \"0.130000000000000000\" | .app_state.mint.params.inflation_max = \"0.200000000000000000\" | .app_state.mint.params.inflation_min = \"0.070000000000000000\" | .app_state.mint.params.goal_bonded = \"0.670000000000000000\" | .app_state.mint.params.annual_provisions = \"0.000000000000000000\" | .app_state.mint.params.inflation = \"0.100000000000000000\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
                 ]
             )
         )
@@ -334,14 +334,14 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Fix any remaining numeric values in the genesis file that should be strings
+        # Fix specific numeric values that should be strings in other modules
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /home/provenance/config/genesis.json | jq 'walk(if type == \"number\" and (path | contains([\"amount\", \"max_deposit\", \"min_deposit\", \"supply\", \"max_gas\", \"max_bytes\", \"signed_blocks_window\"])) then tostring else . end)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.gov.params.max_deposit[0].amount = \"10000000\" | .app_state.gov.params.min_deposit[0].amount = \"10000000\" | .app_state.consensus_params.block.max_gas = \"-1\" | .app_state.consensus_params.block.max_bytes = \"22020096\" | .app_state.msgfees.params.floor_gas_price.amount = \"1905\" | .app_state.msgfees.params.nhash_per_usd_mil = \"25000000\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
                 ]
             )
         )
