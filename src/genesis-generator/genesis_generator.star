@@ -74,7 +74,7 @@ def generate_genesis_files(plan, parsed_args):
                         command=[
                             "/bin/sh",
                             "-c",
-                            "cat /tmp/key_{}.json | jq -r .address".format(node_index)
+                            "cat /tmp/key_{}.json | jq -r .address | tr -d '\\n'".format(node_index)
                         ],
                         extract={
                             "address": ".*"
@@ -88,7 +88,7 @@ def generate_genesis_files(plan, parsed_args):
                         command=[
                             "/bin/sh",
                             "-c",
-                            "cat /tmp/key_{}.json | jq -r .mnemonic".format(node_index)
+                            "cat /tmp/key_{}.json | jq -r .mnemonic | tr -d '\\n'".format(node_index)
                         ],
                         extract={
                             "mnemonic": ".*"
@@ -149,7 +149,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /tmp/faucet.json | jq -r .address"
+                    "cat /tmp/faucet.json | jq -r .address | tr -d '\\n'"
                 ],
                 extract={
                     "faucet_address": ".*"
@@ -163,7 +163,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /tmp/faucet.json | jq -r .mnemonic"
+                    "cat /tmp/faucet.json | jq -r .mnemonic | tr -d '\\n'"
                 ],
                 extract={
                     "faucet_mnemonic": ".*"
