@@ -67,37 +67,42 @@ def generate_genesis_files(plan, parsed_args):
                     )
                 )
                 
-                # Extract address and mnemonic
+                # Write address and mnemonic to files for easier extraction
+                plan.exec(
+                    service_name="{}-genesis-generator".format(chain_name),
+                    recipe=ExecRecipe(
+                        command=[
+                            "/bin/sh",
+                            "-c",
+                            "cat /tmp/key_{}.json | jq -r .address > /tmp/address_{}.txt && cat /tmp/key_{}.json | jq -r .mnemonic > /tmp/mnemonic_{}.txt".format(node_index, node_index, node_index, node_index)
+                        ]
+                    )
+                )
+                
+                # Read address from file
                 address_result = plan.exec(
                     service_name="{}-genesis-generator".format(chain_name),
                     recipe=ExecRecipe(
                         command=[
-                            "/bin/sh",
-                            "-c",
-                            "cat /tmp/key_{}.json | jq -r .address | tr -d '\\n'".format(node_index)
-                        ],
-                        extract={
-                            "address": ".*"
-                        }
+                            "cat", 
+                            "/tmp/address_{}.txt".format(node_index)
+                        ]
                     )
                 )
                 
+                # Read mnemonic from file
                 mnemonic_result = plan.exec(
                     service_name="{}-genesis-generator".format(chain_name),
                     recipe=ExecRecipe(
                         command=[
-                            "/bin/sh",
-                            "-c",
-                            "cat /tmp/key_{}.json | jq -r .mnemonic | tr -d '\\n'".format(node_index)
-                        ],
-                        extract={
-                            "mnemonic": ".*"
-                        }
+                            "cat", 
+                            "/tmp/mnemonic_{}.txt".format(node_index)
+                        ]
                     )
                 )
                 
-                address = address_result["extract.address"].strip()
-                mnemonic = mnemonic_result["extract.mnemonic"].strip()
+                address = address_result["stdout"].strip()
+                mnemonic = mnemonic_result["stdout"].strip()
                 
                 addresses.append(address)
                 mnemonics.append(mnemonic)
@@ -143,36 +148,42 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Write faucet address and mnemonic to files for easier extraction
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /tmp/faucet.json | jq -r .address > /tmp/faucet_address.txt && cat /tmp/faucet.json | jq -r .mnemonic > /tmp/faucet_mnemonic.txt"
+                ]
+            )
+        )
+        
+        # Read faucet address from file
         faucet_address_result = plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
-                    "/bin/sh",
-                    "-c",
-                    "cat /tmp/faucet.json | jq -r .address | tr -d '\\n'"
-                ],
-                extract={
-                    "faucet_address": ".*"
-                }
+                    "cat", 
+                    "/tmp/faucet_address.txt"
+                ]
             )
         )
         
+        # Read faucet mnemonic from file
         faucet_mnemonic_result = plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
-                    "/bin/sh",
-                    "-c",
-                    "cat /tmp/faucet.json | jq -r .mnemonic | tr -d '\\n'"
-                ],
-                extract={
-                    "faucet_mnemonic": ".*"
-                }
+                    "cat", 
+                    "/tmp/faucet_mnemonic.txt"
+                ]
             )
         )
         
-        faucet_address = faucet_address_result["extract.faucet_address"].strip()
-        faucet_mnemonic = faucet_mnemonic_result["extract.faucet_mnemonic"].strip()
+        faucet_address = faucet_address_result["stdout"].strip()
+        faucet_mnemonic = faucet_mnemonic_result["stdout"].strip()
         
         # Add faucet account to genesis with large balance
         plan.exec(
