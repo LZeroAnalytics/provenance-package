@@ -261,6 +261,18 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Fix unrestricted_denom_regex parameter - remove regex anchors (^ and $) that cause validation errors
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.marker.params.unrestricted_denom_regex = \"[a-zA-Z][a-zA-Z0-9]{2,127}\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Verify the fix was applied
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
