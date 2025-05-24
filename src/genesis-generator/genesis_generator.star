@@ -76,7 +76,9 @@ def generate_genesis_files(plan, parsed_args):
                             "-c",
                             "cat /tmp/key_{}.json | jq -r .address".format(node_index)
                         ],
-                        capture_stdout=True
+                        extract={
+                            "address": ".+"
+                        }
                     )
                 )
                 
@@ -88,12 +90,14 @@ def generate_genesis_files(plan, parsed_args):
                             "-c",
                             "cat /tmp/key_{}.json | jq -r .mnemonic".format(node_index)
                         ],
-                        capture_stdout=True
+                        extract={
+                            "mnemonic": ".+"
+                        }
                     )
                 )
                 
-                address = address_result["output"].strip()
-                mnemonic = mnemonic_result["output"].strip()
+                address = address_result["extract.address"].strip()
+                mnemonic = mnemonic_result["extract.mnemonic"].strip()
                 
                 addresses.append(address)
                 mnemonics.append(mnemonic)
@@ -147,7 +151,9 @@ def generate_genesis_files(plan, parsed_args):
                     "-c",
                     "cat /tmp/faucet.json | jq -r .address"
                 ],
-                capture_stdout=True
+                extract={
+                    "faucet_address": ".+"
+                }
             )
         )
         
@@ -159,12 +165,14 @@ def generate_genesis_files(plan, parsed_args):
                     "-c",
                     "cat /tmp/faucet.json | jq -r .mnemonic"
                 ],
-                capture_stdout=True
+                extract={
+                    "faucet_mnemonic": ".+"
+                }
             )
         )
         
-        faucet_address = faucet_address_result["output"].strip()
-        faucet_mnemonic = faucet_mnemonic_result["output"].strip()
+        faucet_address = faucet_address_result["extract.faucet_address"].strip()
+        faucet_mnemonic = faucet_mnemonic_result["extract.faucet_mnemonic"].strip()
         
         # Add faucet account to genesis with large balance
         plan.exec(
@@ -245,13 +253,15 @@ def generate_genesis_files(plan, parsed_args):
                     "-c",
                     "cat /root/.provenance/config/genesis.json"
                 ],
-                capture_stdout=True
+                extract={
+                    "genesis_content": ".+"
+                }
             )
         )
         
         # Store the genesis data
         genesis_files[chain_name] = {
-            "genesis_file": genesis_file["output"],
+            "genesis_file": genesis_file["extract.genesis_content"],
             "addresses": addresses,
             "mnemonics": mnemonics,
             "faucet": {
