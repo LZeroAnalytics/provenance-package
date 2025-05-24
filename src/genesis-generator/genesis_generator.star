@@ -309,6 +309,18 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Fix mint module parameters - ensure numeric values are properly quoted as strings
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.mint.minter.inflation = \"0.000000000000000000\" | .app_state.mint.minter.annual_provisions = \"1.000000000000000000\" | .app_state.mint.params.inflation_rate_change = \"1.000000000000000000\" | .app_state.mint.params.inflation_max = \"0.000000000000000000\" | .app_state.mint.params.inflation_min = \"0.000000000000000000\" | .app_state.mint.params.goal_bonded = \"1.000000000000000000\" | .app_state.mint.params.blocks_per_year = \"6311520\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Verify the fix was applied
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
