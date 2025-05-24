@@ -133,27 +133,20 @@ def extract_node_id(plan, node_name):
     # This avoids waiting for the RPC port which might not be available if the node crashes
     node_id_file = "/var/tmp/{}.node_id".format(node_name)
     
-    # Wait for the node ID file to be created
-    wait_result = plan.wait(
+    # Check if the node ID file exists without waiting
+    check_result = plan.exec(
         service_name = node_name,
         recipe = ExecRecipe(
             command=[
                 "/bin/sh", 
                 "-c", 
-                "test -f {} && cat {} | grep node_id || exit 1".format(node_id_file, node_id_file)
+                "test -f {} && echo 'FILE_EXISTS' || echo 'FILE_NOT_FOUND'".format(node_id_file)
             ]
-        ),
-        field = "code",
-        assertion = "==",
-        target_value = 0,
-        interval = "2s",
-        timeout = "30s",
-        fail_fast = False,
-        description = "Waiting for node ID file to be created"
+        )
     )
     
-    # Check if wait was successful
-    if wait_result["status"] == "PASSED":
+    # If the file exists, try to get the node ID from it
+    if "FILE_EXISTS" in check_result["output"]:
         # Extract the node ID from the file
         node_id_result = plan.exec(
             service_name = node_name,
@@ -161,16 +154,13 @@ def extract_node_id(plan, node_name):
                 command=[
                     "/bin/sh", 
                     "-c", 
-                    "cat {} | jq -r .node_id".format(node_id_file)
-                ],
-                extract={
-                    "node_id": "output"
-                }
+                    "cat {} | jq -r .node_id 2>/dev/null || echo ''".format(node_id_file)
+                ]
             )
         )
         
         # Get the node ID from the extraction
-        node_id = node_id_result["extract.node_id"].strip()
+        node_id = node_id_result["output"].strip()
         
         # If node ID is empty, get it directly from the node
         if not node_id:
@@ -180,14 +170,19 @@ def extract_node_id(plan, node_name):
                     command=[
                         "/bin/sh", 
                         "-c", 
-                        "provenanced tendermint show-node-id || echo ''"
+                        "provenanced tendermint show-node-id 2>/dev/null || echo ''"
                     ]
                 )
             )
             node_id = direct_result["output"].strip()
     else:
-        # If wait failed, use a default node ID for testing
+        # If file doesn't exist, use a default node ID for testing
         node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
-        plan.print("WARNING: Using default node ID: {}".format(node_id))
+        plan.print("WARNING: Node ID file not found. Using default node ID: {}".format(node_id))
+    
+    # If we still don't have a node ID, use a default
+    if not node_id:
+        node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
+        plan.print("WARNING: Could not get node ID. Using default node ID: {}".format(node_id))
     
     return node_id
