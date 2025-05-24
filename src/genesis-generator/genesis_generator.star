@@ -222,7 +222,7 @@ def generate_genesis_files(plan, parsed_args):
         # Set module parameters in genesis file
         for module, params in chain["modules"].items():
             for param, value in params.items():
-                if isinstance(value, str) and not value.startswith('"'):
+                if type(value) == "string" and not value.startswith('"'):
                     value = '"{}"'.format(value)
                 
                 plan.exec(
