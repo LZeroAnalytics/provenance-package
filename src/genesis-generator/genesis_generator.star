@@ -237,6 +237,18 @@ def generate_genesis_files(plan, parsed_args):
                     )
                 )
         
+        # Fix marker module max_supply parameter - must be within uint64 range
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.marker.params.max_supply = \"18446744073709551615\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Store the genesis file
         genesis_file = plan.store_service_files(
             service_name="{}-genesis-generator".format(chain_name),
