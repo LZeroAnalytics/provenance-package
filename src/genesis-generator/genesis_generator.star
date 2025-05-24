@@ -240,7 +240,7 @@ def generate_genesis_files(plan, parsed_args):
         # Store the genesis file
         genesis_file = plan.store_service_files(
             service_name="{}-genesis-generator".format(chain_name),
-            src="/root/.provenance/config/genesis.json",
+            src="/home/provenance/config/genesis.json",
             name="{}-genesis-file".format(chain_name)
         )
         
