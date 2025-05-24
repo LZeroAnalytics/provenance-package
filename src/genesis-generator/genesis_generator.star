@@ -44,7 +44,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "provenanced init node-0 --chain-id {} --default-denom {} > /tmp/init_output.json".format(chain_id, denom)
+                    "provenanced init node-0 --chain-id {} --custom-denom {} > /tmp/init_output.json".format(chain_id, denom)
                 ]
             )
         )
