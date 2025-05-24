@@ -297,6 +297,18 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Fix slashing module parameters - ensure numeric values are properly quoted as strings
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.slashing.params.signed_blocks_window = \"100\" | .app_state.slashing.params.min_signed_per_window = \"0.500000000000000000\" | .app_state.slashing.params.downtime_jail_duration = \"600s\" | .app_state.slashing.params.slash_fraction_double_sign = \"0.050000000000000000\" | .app_state.slashing.params.slash_fraction_downtime = \"0.010000000000000000\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Verify the fix was applied
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
