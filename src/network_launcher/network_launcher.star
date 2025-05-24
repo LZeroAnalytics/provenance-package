@@ -129,20 +129,36 @@ def start_node(plan, node_name, netem_enabled, participant, binary, start_args, 
     return node_id, node_ip
 
 def extract_node_id(plan, node_name):
-    node_id_file = "/var/tmp/{}.node_id".format(node_name)
-    init_result = plan.wait(
+    # First wait for the node to be ready by checking if it's responding on RPC port
+    plan.wait(
         service_name = node_name,
         recipe = ExecRecipe(
-            command=["/bin/sh", "-c", "cat {}".format(node_id_file)],
-            extract={
-                "node_id": "fromjson | .node_id"
-            }
+            command=[
+                "/bin/sh", 
+                "-c", 
+                "curl -s http://localhost:26657/status || exit 1"
+            ]
         ),
         field = "code",
         assertion = "==",
         target_value = 0,
-        interval = "1s",
-        timeout = "5m",
-        description = "Waiting for node {} to initialise".format(node_name)
+        interval = "5s",
+        timeout = "2m",
+        description = "Waiting for node {} RPC to be available".format(node_name)
     )
-    return init_result["extract.node_id"]
+    
+    # Now get the node ID directly from the node
+    node_id_result = plan.exec(
+        service_name = node_name,
+        recipe = ExecRecipe(
+            command=[
+                "/bin/sh", 
+                "-c", 
+                "provenanced tendermint show-node-id"
+            ]
+        )
+    )
+    
+    # Trim any whitespace from the node ID
+    node_id = node_id_result["output"].strip()
+    return node_id

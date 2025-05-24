@@ -48,7 +48,9 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
     echo "Getting node ID..."
     NODE_ID=$({{ .binary }} tendermint show-node-id) || echo "Node ID retrieval failed with code $?"
     echo "Node ID: $NODE_ID"
+    mkdir -p $(dirname {{ .node_id_file }})
     echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }} || echo "Node ID file creation failed with code $?"
+    chmod 777 {{ .node_id_file }} || echo "Changing permissions failed with code $?"
     echo "Node ID file created at {{ .node_id_file }}"
     ls -la {{ .node_id_file }} || echo "Cannot list node ID file"
 fi
