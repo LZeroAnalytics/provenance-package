@@ -1,44 +1,62 @@
 #!/bin/sh
 
-set -e
+# Remove -e to prevent script from exiting on error for debugging
+set -x
+
+# Create directories if they don't exist
+mkdir -p {{ .config_folder }}
+mkdir -p /var/tmp
+
+# Debug information
+echo "DEBUG: Current directory: $(pwd)"
+echo "DEBUG: Listing config folder: $(ls -la {{ .config_folder }} 2>/dev/null || echo 'Config folder not found')"
+echo "DEBUG: Checking binary: $(which {{ .binary }} || echo 'Binary not found')"
 
 # Initialize node if not already initialized
 if [ ! -f {{ .config_folder }}/genesis.json ]; then
     echo "Initializing node..."
-    {{ .binary }} init node-0 --chain-id provenance-testnet-1
+    {{ .binary }} init node-0 --chain-id provenance-testnet-1 || echo "Init failed with code $?"
     
     # Import key from mnemonic
     echo "Importing key from mnemonic..."
-    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover
+    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover || echo "Key import failed with code $?"
     
     # Import faucet key if provided
     if [ -n "{{ .faucet_mnemonic }}" ]; then
         echo "Importing faucet key..."
-        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover
+        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover || echo "Faucet key import failed with code $?"
     fi
     
     # Copy genesis file
     echo "Copying genesis file..."
-    cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
+    cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json || echo "Genesis copy failed with code $?"
     
     # Configure node
     echo "Configuring node..."
-    sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml
-    sed -i 's/prometheus = false/prometheus = true/g' {{ .config_folder }}/config.toml
-    sed -i 's/prometheus_listen_addr = ":26660"/prometheus_listen_addr = "{{ .prometheus_listen_addr }}"/g' {{ .config_folder }}/config.toml
+    sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml || echo "CORS config failed with code $?"
+    sed -i 's/prometheus = false/prometheus = true/g' {{ .config_folder }}/config.toml || echo "Prometheus config failed with code $?"
+    sed -i 's/prometheus_listen_addr = ":26660"/prometheus_listen_addr = "{{ .prometheus_listen_addr }}"/g' {{ .config_folder }}/config.toml || echo "Prometheus addr config failed with code $?"
     
     # Enable API and set CORS
-    sed -i 's/enable = false/enable = true/g' {{ .config_folder }}/app.toml
-    sed -i 's/enabled-unsafe-cors = false/enabled-unsafe-cors = true/g' {{ .config_folder }}/app.toml
+    sed -i 's/enable = false/enable = true/g' {{ .config_folder }}/app.toml || echo "API enable failed with code $?"
+    sed -i 's/enabled-unsafe-cors = false/enabled-unsafe-cors = true/g' {{ .config_folder }}/app.toml || echo "CORS config failed with code $?"
     
     # Set minimum gas prices
-    sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/app.toml
+    sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/app.toml || echo "Gas price config failed with code $?"
     
     # Get node ID and save it to a file
-    NODE_ID=$({{ .binary }} tendermint show-node-id)
-    echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
+    echo "Getting node ID..."
+    NODE_ID=$({{ .binary }} tendermint show-node-id) || echo "Node ID retrieval failed with code $?"
+    echo "Node ID: $NODE_ID"
+    echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }} || echo "Node ID file creation failed with code $?"
+    echo "Node ID file created at {{ .node_id_file }}"
+    ls -la {{ .node_id_file }} || echo "Cannot list node ID file"
 fi
 
-# Start the node
+# Debug information before starting
+echo "DEBUG: Listing config folder after setup: $(ls -la {{ .config_folder }})"
+echo "DEBUG: Checking node ID file: $(cat {{ .node_id_file }} 2>/dev/null || echo 'Node ID file not found')"
+
+# Start the node with nohup to keep it running even if the script exits
 echo "Starting node..."
-{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }}
+{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} || echo "Node start failed with code $?"
