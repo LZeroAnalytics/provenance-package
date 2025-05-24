@@ -96,9 +96,16 @@ def start_node(plan, node_name, netem_enabled, participant, binary, start_args, 
         name="{}-start-script".format(node_name)
     )
 
+    # Store genesis file as an artifact
+    genesis_artifact = plan.store_file(
+        path="/tmp/genesis.json",
+        name="{}-genesis-file".format(node_name),
+        contents=genesis_file
+    )
+    
     # Add genesis file to the node
     files = {
-        "/tmp/genesis": genesis_file,
+        "/tmp/genesis": genesis_artifact,
         "/usr/local/bin": start_node_script
     }
 
