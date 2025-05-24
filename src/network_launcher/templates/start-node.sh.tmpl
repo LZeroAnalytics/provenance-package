@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -e
+
+# Initialize node if not already initialized
+if [ ! -f {{ .config_folder }}/genesis.json ]; then
+    echo "Initializing node..."
+    {{ .binary }} init node-0 --chain-id provenance-testnet-1
+    
+    # Import key from mnemonic
+    echo "Importing key from mnemonic..."
+    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover
+    
+    # Import faucet key if provided
+    if [ -n "{{ .faucet_mnemonic }}" ]; then
+        echo "Importing faucet key..."
+        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover
+    fi
+    
+    # Copy genesis file
+    echo "Copying genesis file..."
+    cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
+    
+    # Configure node
+    echo "Configuring node..."
+    sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml
+    sed -i 's/prometheus = false/prometheus = true/g' {{ .config_folder }}/config.toml
+    sed -i 's/prometheus_listen_addr = ":26660"/prometheus_listen_addr = "{{ .prometheus_listen_addr }}"/g' {{ .config_folder }}/config.toml
+    
+    # Enable API and set CORS
+    sed -i 's/enable = false/enable = true/g' {{ .config_folder }}/app.toml
+    sed -i 's/enabled-unsafe-cors = false/enabled-unsafe-cors = true/g' {{ .config_folder }}/app.toml
+    
+    # Set minimum gas prices
+    sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/app.toml
+    
+    # Get node ID and save it to a file
+    NODE_ID=$({{ .binary }} tendermint show-node-id)
+    echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
+fi
+
+# Start the node
+echo "Starting node..."
+{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }}

@@ -89,7 +89,7 @@ def start_node(plan, node_name, netem_enabled, participant, binary, start_args, 
     start_node_script = plan.render_templates(
         config={
             "start-node.sh": struct(
-                template=read_file("src/templates/start-node.sh.tmpl"),
+                template=read_file("src/network_launcher/templates/start-node.sh.tmpl"),
                 data=node_config_data
             )
         },

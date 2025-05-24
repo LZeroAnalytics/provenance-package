@@ -11,7 +11,7 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
     mnemonic_file = plan.render_templates(
         config = {
             "mnemonic.txt": struct(
-                template = read_file("src/templates/mnemonic.txt.tmpl"),
+                template = read_file("src/faucet/templates/mnemonic.txt.tmpl"),
                 data = mnemonic_data
             )
         },
