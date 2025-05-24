@@ -87,6 +87,17 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
         grep -A 5 max_total_supply {{ .config_folder }}/genesis.json || echo "max_total_supply not found"
     fi
     
+    # Remove unsupported mint module parameters
+    echo "Removing unsupported mint module parameters..."
+    if command -v jq >/dev/null 2>&1; then
+        jq 'del(.app_state.mint.params.annual_provisions) | del(.app_state.mint.params.inflation)' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
+        if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
+            mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
+        else
+            echo "ERROR: jq produced empty output when removing unsupported mint parameters"
+        fi
+    fi
+    
     # Configure node
     echo "Configuring node..."
     sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml || echo "CORS config failed with code $?"

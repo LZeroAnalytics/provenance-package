@@ -322,6 +322,18 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Remove unsupported mint module parameters
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.mint.params.annual_provisions) | del(.app_state.mint.params.inflation)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Verify all numeric values in the mint module are properly quoted as strings
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
