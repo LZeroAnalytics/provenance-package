@@ -96,7 +96,7 @@ def generate_genesis_files(plan, parsed_args):
                         command=[
                             "/bin/sh",
                             "-c",
-                            "provenanced add-genesis-account {} {}{}".format(address, participant["account_balance"], denom)
+                            "provenanced genesis add-account {} {}{}".format(address, participant["account_balance"], denom)
                         ]
                     )
                 )
@@ -109,7 +109,7 @@ def generate_genesis_files(plan, parsed_args):
                             command=[
                                 "/bin/sh",
                                 "-c",
-                                "provenanced gentx node-{} {}{}".format(
+                                "provenanced genesis gentx node-{} {}{}".format(
                                     node_index,
                                     participant["staking_amount"],
                                     denom
@@ -156,7 +156,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "provenanced add-genesis-account {} {}{}".format(
+                    "provenanced genesis add-account {} {}{}".format(
                         faucet_address,
                         chain["faucet"]["faucet_amount"],
                         denom
@@ -172,7 +172,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "provenanced collect-gentxs"
+                    "provenanced genesis collect-gentxs"
                 ]
             )
         )
@@ -184,7 +184,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "provenanced validate-genesis"
+                    "provenanced genesis validate"
                 ]
             )
         )
