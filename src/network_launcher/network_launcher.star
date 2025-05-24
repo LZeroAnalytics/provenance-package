@@ -134,13 +134,13 @@ def extract_node_id(plan, node_name):
     node_id_file = "/var/tmp/{}.node_id".format(node_name)
     
     # Wait for the node ID file to be created
-    plan.wait(
+    wait_result = plan.wait(
         service_name = node_name,
         recipe = ExecRecipe(
             command=[
                 "/bin/sh", 
                 "-c", 
-                "test -f {} && cat {} | grep node_id".format(node_id_file, node_id_file)
+                "test -f {} && cat {} | grep node_id || exit 1".format(node_id_file, node_id_file)
             ]
         ),
         field = "code",
@@ -148,44 +148,46 @@ def extract_node_id(plan, node_name):
         target_value = 0,
         interval = "2s",
         timeout = "30s",
+        fail_fast = False,
         description = "Waiting for node ID file to be created"
     )
     
-    # Extract the node ID from the file
-    node_id_result = plan.exec(
-        service_name = node_name,
-        recipe = ExecRecipe(
-            command=[
-                "/bin/sh", 
-                "-c", 
-                "cat {} | jq -r .node_id".format(node_id_file)
-            ],
-            extract={
-                "node_id": "output"
-            }
+    # Check if wait was successful
+    if wait_result["status"] == "PASSED":
+        # Extract the node ID from the file
+        node_id_result = plan.exec(
+            service_name = node_name,
+            recipe = ExecRecipe(
+                command=[
+                    "/bin/sh", 
+                    "-c", 
+                    "cat {} | jq -r .node_id".format(node_id_file)
+                ],
+                extract={
+                    "node_id": "output"
+                }
+            )
         )
-    )
-    
-    # Get the node ID from the extraction
-    node_id = node_id_result["extract.node_id"].strip()
-    
-    # If node ID is empty, try to get it directly from the node
-    if not node_id:
-        try:
+        
+        # Get the node ID from the extraction
+        node_id = node_id_result["extract.node_id"].strip()
+        
+        # If node ID is empty, get it directly from the node
+        if not node_id:
             direct_result = plan.exec(
                 service_name = node_name,
                 recipe = ExecRecipe(
                     command=[
                         "/bin/sh", 
                         "-c", 
-                        "provenanced tendermint show-node-id"
+                        "provenanced tendermint show-node-id || echo ''"
                     ]
                 )
             )
             node_id = direct_result["output"].strip()
-        except:
-            # If that fails, use a default node ID for testing
-            node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
-            plan.print("WARNING: Using default node ID: {}".format(node_id))
+    else:
+        # If wait failed, use a default node ID for testing
+        node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
+        plan.print("WARNING: Using default node ID: {}".format(node_id))
     
     return node_id
