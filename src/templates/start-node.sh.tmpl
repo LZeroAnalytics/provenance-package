@@ -31,6 +31,16 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
     echo "Copying genesis file..."
     cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json || echo "Genesis copy failed with code $?"
     
+    # Fix marker module parameters in genesis file to prevent uint64 overflow
+    echo "Fixing marker module parameters..."
+    sed -i 's/"max_supply": "100000000000000000000"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
+    sed -i 's/"max_total_supply": "0"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+    
+    # Verify the fix was applied
+    echo "Verifying marker module parameter fixes:"
+    grep -A 1 max_supply {{ .config_folder }}/genesis.json || echo "max_supply not found"
+    grep -A 1 max_total_supply {{ .config_folder }}/genesis.json || echo "max_total_supply not found"
+    
     # Configure node
     echo "Configuring node..."
     sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml || echo "CORS config failed with code $?"
@@ -58,7 +68,36 @@ fi
 # Debug information before starting
 echo "DEBUG: Listing config folder after setup: $(ls -la {{ .config_folder }})"
 echo "DEBUG: Checking node ID file: $(cat {{ .node_id_file }} 2>/dev/null || echo 'Node ID file not found')"
+echo "DEBUG: Checking genesis file content:"
+cat {{ .config_folder }}/genesis.json | grep -A 5 marker || echo "marker section not found in genesis"
 
 # Start the node with nohup to keep it running even if the script exits
 echo "Starting node..."
-{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} || echo "Node start failed with code $?"
+# Run in background and redirect output to log file
+nohup {{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} > /var/log/provenance.log 2>&1 &
+
+# Store the PID
+PID=$!
+echo "Node started with PID: $PID"
+
+# Wait for the node to start or fail
+sleep 5
+if ps -p $PID > /dev/null; then
+    echo "Node is running with PID: $PID"
+    # Wait for RPC to be available
+    for i in $(seq 1 60); do
+        if curl -s http://localhost:26657/status > /dev/null; then
+            echo "RPC is available"
+            break
+        fi
+        echo "Waiting for RPC to be available... ($i/60)"
+        sleep 2
+    done
+else
+    echo "Node failed to start. Check logs:"
+    tail -n 50 /var/log/provenance.log
+    exit 1
+fi
+
+# Keep the container running
+tail -f /var/log/provenance.log
