@@ -19,7 +19,7 @@ def generate_genesis_files(plan, parsed_args):
                 cmd=[
                     "/bin/sh",
                     "-c",
-                    "mkdir -p /tmp/genesis && touch /tmp/genesis/ready"
+                    "mkdir -p /tmp/genesis && touch /tmp/genesis/ready && tail -f /dev/null"
                 ]
             )
         )
