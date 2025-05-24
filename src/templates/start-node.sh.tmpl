@@ -52,6 +52,18 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
         sed -i 's/"unrestricted_denom_regex": "[^"]*"/"unrestricted_denom_regex": "[a-zA-Z][a-zA-Z0-9]{2,127}"/g' {{ .config_folder }}/genesis.json || echo "unrestricted_denom_regex fix failed with code $?"
     fi
     
+    # Fix numeric values in genesis file that should be strings
+    echo "Fixing numeric values in genesis file..."
+    if command -v jq >/dev/null 2>&1; then
+        echo "Using jq to fix numeric values..."
+        jq 'walk(if type == "number" and (path | contains(["amount", "max_deposit", "min_deposit", "supply", "max_gas", "max_bytes", "signed_blocks_window"])) then tostring else . end)' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
+        if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
+            mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
+        else
+            echo "ERROR: jq produced empty output when fixing numeric values"
+        fi
+    fi
+    
     # Verify the fix was applied
     echo "Verifying marker module parameter fixes:"
     if command -v jq >/dev/null 2>&1; then

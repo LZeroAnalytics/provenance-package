@@ -309,7 +309,7 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Fix mint module parameters - remove annual_provisions from params and only keep it in minter
+        # Fix mint module parameters - ensure all numeric values are properly quoted as strings
         # Provenance has a custom mint module implementation
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
@@ -318,6 +318,30 @@ def generate_genesis_files(plan, parsed_args):
                     "/bin/sh",
                     "-c",
                     "cat /home/provenance/config/genesis.json | jq '.app_state.mint.minter.inflation = \"0.000000000000000000\" | .app_state.mint.minter.annual_provisions = \"1.000000000000000000\" | .app_state.mint.params.mint_denom = \"nhash\" | .app_state.mint.params.blocks_per_year = \"6311520\"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
+        # Verify all numeric values in the mint module are properly quoted as strings
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.mint'"
+                ]
+            )
+        )
+        
+        # Fix any remaining numeric values in the genesis file that should be strings
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq 'walk(if type == \"number\" and (path | contains([\"amount\", \"max_deposit\", \"min_deposit\", \"supply\", \"max_gas\", \"max_bytes\", \"signed_blocks_window\"])) then tostring else . end)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
                 ]
             )
         )
