@@ -33,13 +33,31 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
     
     # Fix marker module parameters in genesis file to prevent uint64 overflow
     echo "Fixing marker module parameters..."
-    sed -i 's/"max_supply": "100000000000000000000"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
-    sed -i 's/"max_total_supply": "0"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+    # Use jq for more reliable JSON manipulation
+    if command -v jq >/dev/null 2>&1; then
+        echo "Using jq to fix marker parameters..."
+        jq '.app_state.marker.params.max_supply = "18446744073709551615" | .app_state.marker.params.max_total_supply = "18446744073709551615"' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
+        if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
+            mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
+        else
+            echo "ERROR: jq produced empty output, falling back to sed"
+            sed -i 's/"max_supply": "[0-9]*"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
+            sed -i 's/"max_total_supply": "[0-9]*"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+        fi
+    else
+        echo "jq not found, using sed for marker parameter fixes..."
+        sed -i 's/"max_supply": "[0-9]*"/"max_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_supply fix failed with code $?"
+        sed -i 's/"max_total_supply": "[0-9]*"/"max_total_supply": "18446744073709551615"/g' {{ .config_folder }}/genesis.json || echo "max_total_supply fix failed with code $?"
+    fi
     
     # Verify the fix was applied
     echo "Verifying marker module parameter fixes:"
-    grep -A 1 max_supply {{ .config_folder }}/genesis.json || echo "max_supply not found"
-    grep -A 1 max_total_supply {{ .config_folder }}/genesis.json || echo "max_total_supply not found"
+    if command -v jq >/dev/null 2>&1; then
+        jq '.app_state.marker.params' {{ .config_folder }}/genesis.json
+    else
+        grep -A 5 max_supply {{ .config_folder }}/genesis.json || echo "max_supply not found"
+        grep -A 5 max_total_supply {{ .config_folder }}/genesis.json || echo "max_total_supply not found"
+    fi
     
     # Configure node
     echo "Configuring node..."
