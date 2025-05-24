@@ -273,6 +273,18 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
+        # Fix distribution module parameters - ensure numeric values are properly quoted as strings
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "cat /home/provenance/config/genesis.json | jq '.app_state.distribution.params.community_tax = \"0.02\" | .app_state.distribution.params.base_proposer_reward = \"0.01\" | .app_state.distribution.params.bonus_proposer_reward = \"0.04\" | .app_state.distribution.params.withdraw_addr_enabled = true' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                ]
+            )
+        )
+        
         # Verify the fix was applied
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
