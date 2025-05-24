@@ -6,7 +6,7 @@ def launch_network(plan, genesis_files, parsed_args):
         chain_name = chain["name"]
         chain_type = chain["type"]
         binary = "provenanced"
-        config_folder = "/root/.provenance/config"
+        config_folder = "/home/provenance/config"
         start_args = "--minimum-gas-prices 0.025nhash"
 
         # Get the genesis file and related data
