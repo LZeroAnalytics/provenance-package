@@ -54,7 +54,7 @@ def launch_bdjuno(plan, chain_name, denom, block_explorer_config):
     bdjuno_config_file = plan.render_templates(
         config={
             "config.yaml": struct(
-                template=read_file("templates/bdjuno-config.yaml.tmpl"),
+                template=read_file("../templates/bdjuno-config.yaml.tmpl"),
                 data=bdjuno_config
             )
         },
