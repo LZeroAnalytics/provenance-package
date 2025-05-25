@@ -45,8 +45,13 @@ def apply_chain_defaults(chain, defaults):
     # Set additional services
     chain["additional_services"] = chain.get("additional_services", defaults["additional_services"])
 
-    # Set participants
-    chain["participants"] = chain.get("participants", defaults["participants"])
+    # Set participants - only use defaults if not provided
+    if "participants" not in chain:
+        chain["participants"] = defaults["participants"]
+    
+    # Set services if not provided
+    if "services" not in chain and "services" in defaults:
+        chain["services"] = defaults["services"]
 
     return chain
 

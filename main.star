@@ -87,6 +87,14 @@ def run(plan, args):
         # Debug: Print services configuration
         plan.print("Services configuration: {}".format(services))
         
+        # Ensure services are properly initialized
+        if not services:
+            plan.print("WARNING: No services configured in chain. Using defaults.")
+            services = {
+                "faucet": {"enabled": True, "transfer_amount": "1000000000nhash"},
+                "block_explorer": {"enabled": True, "image": "tiljordan/big-dipper-ui:latest", "chain_type": "testnet"}
+            }
+        
         # Launch additional services
         for service in service_launchers:
             if service in additional_services:
