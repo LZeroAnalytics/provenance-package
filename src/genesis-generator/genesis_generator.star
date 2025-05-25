@@ -396,7 +396,11 @@ def generate_genesis_files(plan, parsed_args):
                         "ack_sequences": [],
                         "params": {
                           "upgrade_timeout": {
-                            "timeout_timestamp": "9000000000000000000"
+                            "height": {
+                              "revision_number": "0",
+                              "revision_height": "0"
+                            },
+                            "timestamp": "600000000000"
                           }
                         }
                       }
