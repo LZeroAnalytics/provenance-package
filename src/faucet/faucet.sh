@@ -22,27 +22,35 @@ else
 fi
 
 echo "Starting faucet service on port $PORT"
-socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:"sh -c 'read request; \
-    address=\$(echo \"\$request\" | grep -oE \"\\\"address\\\":\\\"[^\\\"]+\\\"\" | cut -d\\\" -f4); \
-    echo \"HTTP/1.1 200 OK\"; \
-    echo \"Content-Type: application/json\"; \
-    echo \"\"; \
-    if [ -n \"\$address\" ]; then \
-        echo \"Funding address: \$address\" >&2; \
-        result=\$(provenanced tx bank send faucet \"\$address\" \"$TRANSFER_AMOUNT\" --chain-id \"$CHAIN_ID\" --node \"$NODE_URL\" --keyring-backend test --yes 2>&1); \
-        success=\$?; \
-        if [ \$success -eq 0 ]; then \
-            echo \"{\\\"status\\\":\\\"success\\\",\\\"message\\\":\\\"Funded \$address with $TRANSFER_AMOUNT\\\"}\"; \
-        else \
-            echo \"{\\\"status\\\":\\\"error\\\",\\\"message\\\":\\\"Failed to fund address: \$result\\\"}\"; \
-        fi; \
-    else \
-        echo \"{\\\"status\\\":\\\"error\\\",\\\"message\\\":\\\"Invalid request format. Expected {\\\\\\\"address\\\\\\\":\\\\\\\"...\\\\\\\"}\\\"}\";\
-    fi'" &
 
-echo "Starting monitoring endpoint on port $MONITORING_PORT"
-socat TCP-LISTEN:$MONITORING_PORT,fork,reuseaddr EXEC:"sh -c 'echo \"HTTP/1.1 200 OK\"; echo \"Content-Type: application/json\"; echo \"\"; echo \"{\\\"status\\\":\\\"up\\\"}\"'" &
+handle_funding_request() {
+    local address="$1"
+    echo "Funding address: $address"
+    result=$(provenanced tx bank send faucet "$address" "$TRANSFER_AMOUNT" --chain-id "$CHAIN_ID" --node "$NODE_URL" --keyring-backend test --yes 2>&1)
+    success=$?
+    
+    if [ $success -eq 0 ]; then
+        echo "{\"status\":\"success\",\"message\":\"Funded $address with $TRANSFER_AMOUNT\"}"
+    else
+        echo "{\"status\":\"error\",\"message\":\"Failed to fund address: $result\"}"
+    fi
+}
+
+(
+    while true; do
+        echo "Checking if node is ready..."
+        provenanced status --node "$NODE_URL" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo "Node is ready. Faucet is operational."
+            break
+        fi
+        echo "Node not ready yet. Waiting..."
+        sleep 5
+    done
+) &
 
 while true; do
+    echo "Faucet service running. To request funds, use:"
+    echo "curl -X POST -H \"Content-Type: application/json\" -d '{\"address\":\"your-address\"}' http://<faucet-host>:$PORT"
     sleep 60
 done
