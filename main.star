@@ -43,56 +43,17 @@ def run(plan, args):
         first_node = node_names[0]
         plan.print("Checking node status for {}".format(first_node))
         
-        # Check if the node is running by checking for the provenanced process
-        # Using a more basic approach that should work in minimal containers
-        check_result = plan.exec(
-            service_name = first_node,
-            recipe = ExecRecipe(
-                command=[
-                    "/bin/sh", 
-                    "-c", 
-                    "pgrep -f provenanced || echo 'Process not found'"
-                ]
-            )
-        )
-        plan.print("Node process check: {}".format(check_result["output"]))
-        
-        # Check node logs
-        log_result = plan.exec(
-            service_name = first_node,
-            recipe = ExecRecipe(
-                command=[
-                    "/bin/sh", 
-                    "-c", 
-                    "cat /var/log/provenance.log 2>/dev/null || echo 'Log file not found'"
-                ]
-            )
-        )
-        plan.print("Node logs: {}".format(log_result["output"]))
-        
-        # Try to manually start the node if it's not running
-        plan.print("Attempting to manually start the node")
-        start_result = plan.exec(
-            service_name = first_node,
-            recipe = ExecRecipe(
-                command=[
-                    "/bin/sh", 
-                    "-c", 
-                    "provenanced start --rpc.laddr tcp://0.0.0.0:26657 --grpc.address 0.0.0.0:9090 --api.address tcp://0.0.0.0:1317 --api.enable --api.enabled-unsafe-cors --minimum-gas-prices 0.025nhash > /var/log/provenance.log 2>&1 &"
-                ]
-            )
-        )
-        plan.print("Manual start result: {}".format(start_result["output"]))
-        
-        # Give the node some time to start
+        # Skip process checking since the container is minimal
         plan.print("Waiting for node to start...")
+        
+        # Wait a moment for the node to initialize
         plan.exec(
             service_name = first_node,
             recipe = ExecRecipe(
                 command=[
                     "/bin/sh", 
                     "-c", 
-                    "sleep 10"
+                    "sleep 5"
                 ]
             )
         )
