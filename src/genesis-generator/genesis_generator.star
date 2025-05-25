@@ -362,7 +362,7 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Check if gov module exists and has the expected structure before modifying
+        # Fix gov module structure - ensure min_deposit is an array
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
@@ -371,8 +371,14 @@ def generate_genesis_files(plan, parsed_args):
                     "-c",
                     """
                     cat /home/provenance/config/genesis.json | jq '
-                    if (.app_state.gov.params != null) and (.app_state.gov.params.min_deposit | type) == "array" then
-                      .app_state.gov.params.min_deposit[0].amount = "10000000" | 
+                    if (.app_state.gov.params != null) then
+                      if (.app_state.gov.params.min_deposit | type) == "string" then
+                        .app_state.gov.params.min_deposit = [{"denom": "nhash", "amount": "10000000"}]
+                      elif (.app_state.gov.params.min_deposit | type) == "array" then
+                        .app_state.gov.params.min_deposit[0].amount = "10000000"
+                      else
+                        .
+                      end |
                       .app_state.gov.params.voting_period = "172800s" | 
                       .app_state.gov.params.quorum = "0.334000000000000000" | 
                       .app_state.gov.params.threshold = "0.500000000000000000" | 
