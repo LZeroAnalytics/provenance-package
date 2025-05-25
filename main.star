@@ -94,10 +94,6 @@ def run(plan, args):
                     service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
                 elif service == "bdjuno":
                     service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
-            else:
-                plan.print("Could not verify blocks, skipping additional services")
-        else:
-            plan.print("RPC not available, skipping additional services")
 
     # Print the genesis files for reference
     plan.print(genesis_files)
