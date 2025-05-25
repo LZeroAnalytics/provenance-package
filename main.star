@@ -84,8 +84,18 @@ def run(plan, args):
         plan.print("Manual start result: {}".format(start_result["output"]))
         
         # Give the node some time to start
-        plan.print("Waiting 10 seconds for node to start...")
-        time.sleep(10)
+        plan.print("Waiting for node to start...")
+        # Use a simple exec command with sleep to wait instead of time.sleep
+        plan.exec(
+            service_name = first_node,
+            recipe = ExecRecipe(
+                command=[
+                    "/bin/sh", 
+                    "-c", 
+                    "sleep 10"
+                ]
+            )
+        )
         
         # Try to check if RPC is available
         try:
