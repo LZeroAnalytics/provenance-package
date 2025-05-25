@@ -70,7 +70,8 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
             .app_state.gov.params.threshold = "0.500000000000000000" | 
             .app_state.gov.params.veto_threshold = "0.334000000000000000" | 
             .app_state.consensus_params.block.max_gas = "-1" | 
-            .app_state.consensus_params.block.max_bytes = "22020096"' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
+            .app_state.consensus_params.block.max_bytes = "22020096" |
+            del(.app_state.crisis.params)' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
         if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
             mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
         else
