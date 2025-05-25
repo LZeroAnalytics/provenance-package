@@ -21,35 +21,28 @@ else
     exit 1
 fi
 
-(
-    while true; do
-        echo "Monitoring endpoint running on port $MONITORING_PORT"
-        nc -l -p $MONITORING_PORT -c 'echo "HTTP/1.1 200 OK"; echo "Content-Type: application/json"; echo ""; echo "{\"status\":\"up\"}"'
-    done
-) &
+echo "Starting faucet service on port $PORT"
+socat TCP-LISTEN:$PORT,fork,reuseaddr EXEC:"sh -c 'read request; \
+    address=\$(echo \"\$request\" | grep -oE \"\\\"address\\\":\\\"[^\\\"]+\\\"\" | cut -d\\\" -f4); \
+    echo \"HTTP/1.1 200 OK\"; \
+    echo \"Content-Type: application/json\"; \
+    echo \"\"; \
+    if [ -n \"\$address\" ]; then \
+        echo \"Funding address: \$address\" >&2; \
+        result=\$(provenanced tx bank send faucet \"\$address\" \"$TRANSFER_AMOUNT\" --chain-id \"$CHAIN_ID\" --node \"$NODE_URL\" --keyring-backend test --yes 2>&1); \
+        success=\$?; \
+        if [ \$success -eq 0 ]; then \
+            echo \"{\\\"status\\\":\\\"success\\\",\\\"message\\\":\\\"Funded \$address with $TRANSFER_AMOUNT\\\"}\"; \
+        else \
+            echo \"{\\\"status\\\":\\\"error\\\",\\\"message\\\":\\\"Failed to fund address: \$result\\\"}\"; \
+        fi; \
+    else \
+        echo \"{\\\"status\\\":\\\"error\\\",\\\"message\\\":\\\"Invalid request format. Expected {\\\\\\\"address\\\\\\\":\\\\\\\"...\\\\\\\"}\\\"}\";\
+    fi'" &
 
-echo "Faucet service running on port $PORT"
+echo "Starting monitoring endpoint on port $MONITORING_PORT"
+socat TCP-LISTEN:$MONITORING_PORT,fork,reuseaddr EXEC:"sh -c 'echo \"HTTP/1.1 200 OK\"; echo \"Content-Type: application/json\"; echo \"\"; echo \"{\\\"status\\\":\\\"up\\\"}\"'" &
+
 while true; do
-    nc -l -p $PORT -c '
-        read request
-        echo "HTTP/1.1 200 OK"
-        echo "Content-Type: application/json"
-        echo ""
-        
-        address=$(echo "$request" | grep -oE "\"address\":\"[^\"]+\"" | cut -d\" -f4)
-        
-        if [ -n "$address" ]; then
-            echo "Funding address: $address" >&2
-            result=$(provenanced tx bank send faucet "$address" "$TRANSFER_AMOUNT" --chain-id "$CHAIN_ID" --node "$NODE_URL" --keyring-backend test --yes 2>&1)
-            success=$?
-            
-            if [ $success -eq 0 ]; then
-                echo "{\"status\":\"success\",\"message\":\"Funded $address with $TRANSFER_AMOUNT\"}"
-            else
-                echo "{\"status\":\"error\",\"message\":\"Failed to fund address: $result\"}"
-            fi
-        else
-            echo "{\"status\":\"error\",\"message\":\"Invalid request format. Expected {\\\"address\\\":\\\"...\\\"}\"}";
-        fi
-    '
+    sleep 60
 done
