@@ -84,6 +84,17 @@
       "max_value_length": 4096
     }
   },
+  "services": {
+    "block_explorer": {
+      "enabled": true,
+      "image": "tiljordan/big-dipper-ui:latest",
+      "chain_type": "testnet"
+    },
+    "faucet": {
+      "enabled": true,
+      "transfer_amount": "1000000000nhash"
+    }
+  },
   "block_explorer": {
     "harusa_url": "",
     "harusa_ws": "",
