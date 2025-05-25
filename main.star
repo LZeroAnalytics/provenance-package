@@ -85,15 +85,15 @@ def run(plan, args):
         wait_success = True
         
         # Launch additional services
-                for service in service_launchers:
-                    if service in additional_services:
-                        plan.print("Launching {} for chain {}".format(service, chain_name))
-                        if service == "faucet":
-                            faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
-                            transfer_amount = services["faucet"]["transfer_amount"]
-                            service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
-                        elif service == "bdjuno":
-                            service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
+        for service in service_launchers:
+            if service in additional_services:
+                plan.print("Launching {} for chain {}".format(service, chain_name))
+                if service == "faucet":
+                    faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
+                    transfer_amount = services["faucet"]["transfer_amount"]
+                    service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
+                elif service == "bdjuno":
+                    service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
             else:
                 plan.print("Could not verify blocks, skipping additional services")
         else:
