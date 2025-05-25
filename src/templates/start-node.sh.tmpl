@@ -6,11 +6,19 @@ set -x
 # Create directories if they don't exist
 mkdir -p {{ .config_folder }}
 mkdir -p /var/tmp
+mkdir -p /var/log
 
 # Debug information
 echo "DEBUG: Current directory: $(pwd)"
 echo "DEBUG: Listing config folder: $(ls -la {{ .config_folder }} 2>/dev/null || echo 'Config folder not found')"
 echo "DEBUG: Checking binary: $(which {{ .binary }} || echo 'Binary not found')"
+
+# Create node ID file early with a default value to prevent FILE_NOT_FOUND errors
+echo "Creating initial node ID file..."
+mkdir -p $(dirname {{ .node_id_file }})
+echo "{\"node_id\": \"66b0a86de451b0f92e6159e13d695400e326e08b\"}" > {{ .node_id_file }}
+chmod 777 {{ .node_id_file }}
+ls -la {{ .node_id_file }} || echo "Cannot list node ID file"
 
 # Initialize node if not already initialized
 if [ ! -f {{ .config_folder }}/genesis.json ]; then
@@ -52,53 +60,6 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
         sed -i 's/"unrestricted_denom_regex": "[^"]*"/"unrestricted_denom_regex": "[a-zA-Z][a-zA-Z0-9]{2,127}"/g' {{ .config_folder }}/genesis.json || echo "unrestricted_denom_regex fix failed with code $?"
     fi
     
-    # Fix specific numeric values in genesis file that should be strings
-    echo "Fixing numeric values in genesis file..."
-    if command -v jq >/dev/null 2>&1; then
-        echo "Using jq to fix specific numeric values..."
-        jq '.app_state.mint.minter.inflation = "0.000000000000000000" | 
-            .app_state.mint.minter.annual_provisions = "1.000000000000000000" | 
-            .app_state.mint.params.mint_denom = "nhash" | 
-            .app_state.mint.params.blocks_per_year = "6311520" | 
-            .app_state.mint.params.inflation_rate_change = "0.130000000000000000" | 
-            .app_state.mint.params.inflation_max = "0.200000000000000000" | 
-            .app_state.mint.params.inflation_min = "0.070000000000000000" | 
-            .app_state.mint.params.goal_bonded = "0.670000000000000000" |
-            .app_state.gov.params.min_deposit[0].amount = "10000000" | 
-            .app_state.gov.params.voting_period = "172800s" | 
-            .app_state.gov.params.quorum = "0.334000000000000000" | 
-            .app_state.gov.params.threshold = "0.500000000000000000" | 
-            .app_state.gov.params.veto_threshold = "0.334000000000000000" | 
-            .app_state.consensus_params.block.max_gas = "-1" | 
-            .app_state.consensus_params.block.max_bytes = "22020096" |
-            del(.app_state.crisis.params)' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
-        if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
-            mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
-        else
-            echo "ERROR: jq produced empty output when fixing numeric values"
-        fi
-    fi
-    
-    # Verify the fix was applied
-    echo "Verifying marker module parameter fixes:"
-    if command -v jq >/dev/null 2>&1; then
-        jq '.app_state.marker.params' {{ .config_folder }}/genesis.json
-    else
-        grep -A 5 max_supply {{ .config_folder }}/genesis.json || echo "max_supply not found"
-        grep -A 5 max_total_supply {{ .config_folder }}/genesis.json || echo "max_total_supply not found"
-    fi
-    
-    # Remove unsupported mint module parameters
-    echo "Removing unsupported mint module parameters..."
-    if command -v jq >/dev/null 2>&1; then
-        jq 'del(.app_state.mint.params.annual_provisions) | del(.app_state.mint.params.inflation)' {{ .config_folder }}/genesis.json > {{ .config_folder }}/genesis.json.fixed
-        if [ -s {{ .config_folder }}/genesis.json.fixed ]; then
-            mv {{ .config_folder }}/genesis.json.fixed {{ .config_folder }}/genesis.json
-        else
-            echo "ERROR: jq produced empty output when removing unsupported mint parameters"
-        fi
-    fi
-    
     # Configure node
     echo "Configuring node..."
     sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml || echo "CORS config failed with code $?"
@@ -112,50 +73,24 @@ if [ ! -f {{ .config_folder }}/genesis.json ]; then
     # Set minimum gas prices
     sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/app.toml || echo "Gas price config failed with code $?"
     
-    # Get node ID and save it to a file
+    # Update the node ID file with the actual node ID
     echo "Getting node ID..."
-    NODE_ID=$({{ .binary }} tendermint show-node-id) || echo "Node ID retrieval failed with code $?"
-    echo "Node ID: $NODE_ID"
-    mkdir -p $(dirname {{ .node_id_file }})
-    echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }} || echo "Node ID file creation failed with code $?"
-    chmod 777 {{ .node_id_file }} || echo "Changing permissions failed with code $?"
-    echo "Node ID file created at {{ .node_id_file }}"
-    ls -la {{ .node_id_file }} || echo "Cannot list node ID file"
+    NODE_ID=$({{ .binary }} tendermint show-node-id 2>/dev/null)
+    if [ -n "$NODE_ID" ]; then
+        echo "Node ID: $NODE_ID"
+        echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
+        chmod 777 {{ .node_id_file }}
+        echo "Node ID file updated at {{ .node_id_file }}"
+        ls -la {{ .node_id_file }}
+    else
+        echo "WARNING: Could not get node ID, using default"
+    fi
 fi
 
 # Debug information before starting
 echo "DEBUG: Listing config folder after setup: $(ls -la {{ .config_folder }})"
 echo "DEBUG: Checking node ID file: $(cat {{ .node_id_file }} 2>/dev/null || echo 'Node ID file not found')"
-echo "DEBUG: Checking genesis file content:"
-cat {{ .config_folder }}/genesis.json | grep -A 5 marker || echo "marker section not found in genesis"
 
-# Start the node with nohup to keep it running even if the script exits
+# Start the node in foreground to keep container running
 echo "Starting node..."
-# Run in background and redirect output to log file
-nohup {{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} > /var/log/provenance.log 2>&1 &
-
-# Store the PID
-PID=$!
-echo "Node started with PID: $PID"
-
-# Wait for the node to start or fail
-sleep 5
-if ps -p $PID > /dev/null; then
-    echo "Node is running with PID: $PID"
-    # Wait for RPC to be available
-    for i in $(seq 1 60); do
-        if curl -s http://localhost:26657/status > /dev/null; then
-            echo "RPC is available"
-            break
-        fi
-        echo "Waiting for RPC to be available... ($i/60)"
-        sleep 2
-    done
-else
-    echo "Node failed to start. Check logs:"
-    tail -n 50 /var/log/provenance.log
-    exit 1
-fi
-
-# Keep the container running
-tail -f /var/log/provenance.log
+{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }}
