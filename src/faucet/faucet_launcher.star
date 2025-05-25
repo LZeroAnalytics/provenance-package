@@ -18,11 +18,8 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
         name="{}-faucet-mnemonic-file".format(chain_name)
     )
 
-    # Build the faucet image
-    faucet_image = plan.build_image(
-        context_dir = "src/faucet",
-        dockerfile_path = "Dockerfile"
-    )
+    # Use the Provenance image directly
+    faucet_image = "provenanceio/provenance:latest"
 
     # Launch the faucet service
     plan.add_service(
