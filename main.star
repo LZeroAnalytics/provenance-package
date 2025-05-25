@@ -46,17 +46,23 @@ def run(plan, args):
         # Skip process checking since the container is minimal
         plan.print("Waiting for node to start...")
         
-        # Wait a moment for the node to initialize
-        plan.exec(
+        # Give the node time to initialize without using sleep
+        # Instead, use a non-blocking approach to check RPC availability
+        plan.print("Checking if RPC is available...")
+        
+        # Try to access the RPC endpoint with a timeout
+        rpc_check = plan.exec(
             service_name = first_node,
             recipe = ExecRecipe(
                 command=[
                     "/bin/sh", 
                     "-c", 
-                    "sleep 5"
+                    "timeout 2 curl -s http://localhost:26657/status || echo 'RPC not available'"
                 ]
             )
         )
+        
+        plan.print("RPC check result: {}".format(rpc_check["output"]))
         
         # Check if RPC is available
         rpc_check = plan.exec(
