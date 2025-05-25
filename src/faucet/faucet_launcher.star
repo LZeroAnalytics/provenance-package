@@ -25,7 +25,7 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
     faucet_script = plan.render_templates(
         config = {
             "faucet.sh": struct(
-                template = read_file("src/faucet/faucet.sh"),
+                template = read_file("./faucet.sh"),
                 data = {}
             )
         },
