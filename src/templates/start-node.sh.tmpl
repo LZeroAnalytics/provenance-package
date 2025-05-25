@@ -91,6 +91,29 @@ fi
 echo "DEBUG: Listing config folder after setup: $(ls -la {{ .config_folder }})"
 echo "DEBUG: Checking node ID file: $(cat {{ .node_id_file }} 2>/dev/null || echo 'Node ID file not found')"
 
-# Start the node in foreground to keep container running
-echo "Starting node..."
-{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }}
+# Create a log file to capture node output
+touch /var/log/provenance.log
+chmod 777 /var/log/provenance.log
+
+# Start the node in background and redirect output to log file
+echo "Starting node in background..."
+{{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} > /var/log/provenance.log 2>&1 &
+NODE_PID=$!
+echo "Node started with PID: $NODE_PID"
+echo $NODE_PID > /var/tmp/provenanced.pid
+chmod 777 /var/tmp/provenanced.pid
+
+# Keep container running with a simple loop that checks if the node is still running
+echo "Container will now monitor the node process..."
+while true; do
+    if kill -0 $NODE_PID 2>/dev/null; then
+        echo "$(date): Node is running with PID $NODE_PID" >> /var/log/container.log
+    else
+        echo "$(date): Node process with PID $NODE_PID is not running, restarting..." >> /var/log/container.log
+        {{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }} > /var/log/provenance.log 2>&1 &
+        NODE_PID=$!
+        echo "Node restarted with PID: $NODE_PID"
+        echo $NODE_PID > /var/tmp/provenanced.pid
+    fi
+    sleep 30
+done

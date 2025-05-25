@@ -43,18 +43,19 @@ def run(plan, args):
         first_node = node_names[0]
         plan.print("Checking node status for {}".format(first_node))
         
-        # Check if the node is running
+        # Check if the node is running by checking for the provenanced process
+        # Using a more basic approach that should work in minimal containers
         check_result = plan.exec(
             service_name = first_node,
             recipe = ExecRecipe(
                 command=[
                     "/bin/sh", 
                     "-c", 
-                    "ps aux | grep provenanced"
+                    "pgrep -f provenanced || echo 'Process not found'"
                 ]
             )
         )
-        plan.print("Node process status: {}".format(check_result["output"]))
+        plan.print("Node process check: {}".format(check_result["output"]))
         
         # Check node logs
         log_result = plan.exec(
