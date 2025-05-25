@@ -21,6 +21,14 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
     # Use the Provenance image directly
     faucet_image = "provenanceio/provenance:latest"
 
+    # Create faucet script files artifact
+    faucet_script = plan.store_files(
+        name = "{}-faucet-script".format(chain_name),
+        files = {
+            "faucet.sh": read_file("src/faucet/faucet.sh")
+        }
+    )
+
     # Launch the faucet service
     plan.add_service(
         name="{}-faucet".format(chain_name),
@@ -31,8 +39,10 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
                 "monitoring": PortSpec(number=8091, transport_protocol="TCP", wait=None)
             },
             files = {
-                "/tmp/mnemonic": mnemonic_file
+                "/tmp/mnemonic": mnemonic_file,
+                "/app": faucet_script
             },
+            entrypoint = ["/bin/sh", "/app/faucet.sh"],
             env_vars = {
                 "CHAIN_ID": chain_id,
                 "NODE_URL": "http://{}:26657".format(first_node.ip_address),
