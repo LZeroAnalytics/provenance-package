@@ -18,10 +18,17 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
         name="{}-faucet-mnemonic-file".format(chain_name)
     )
 
+    # Build the faucet image
+    faucet_image = plan.build_image(
+        context_dir = "src/faucet",
+        dockerfile_path = "Dockerfile"
+    )
+
+    # Launch the faucet service
     plan.add_service(
         name="{}-faucet".format(chain_name),
         config = ServiceConfig(
-            image = "provenanceio/provenance:latest",
+            image = faucet_image,
             ports = {
                 "api": PortSpec(number=8090, transport_protocol="TCP", wait=None),
                 "monitoring": PortSpec(number=8091, transport_protocol="TCP", wait=None)
@@ -29,29 +36,12 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
             files = {
                 "/tmp/mnemonic": mnemonic_file
             },
-            entrypoint = [
-                "/bin/sh",
-                "-c",
-                "echo 'Starting simple faucet service...' && " +
-                "mkdir -p /root/.provenance && " +
-                "cat /tmp/mnemonic/mnemonic.txt | provenanced keys add faucet --recover --keyring-backend test && " +
-                "while true; do " +
-                "  echo 'Faucet running on port 8090, waiting for requests...' && " +
-                "  nc -l -p 8090 -e /bin/sh -c '" +
-                "    read request; " +
-                "    echo \"HTTP/1.1 200 OK\"; " +
-                "    echo \"Content-Type: application/json\"; " +
-                "    echo \"\"; " +
-                "    address=$(echo \"$request\" | grep -oE '\"address\":\"[^\"]+\"' | cut -d\\\" -f4); " +
-                "    if [ -n \"$address\" ]; then " +
-                "      echo \"Funding address: $address\"; " +
-                "      provenanced tx bank send faucet $address " + str(transfer_amount) + " --chain-id " + chain_id + " --node http://" + first_node.ip_address + ":26657 --keyring-backend test --yes; " +
-                "      echo \"{\\\"status\\\":\\\"success\\\", \\\"message\\\":\\\"Funded $address with " + str(transfer_amount) + "\\\"}\"; " +
-                "    else " +
-                "      echo \"{\\\"status\\\":\\\"error\\\", \\\"message\\\":\\\"Invalid request format. Expected {\\\\\\\"address\\\\\\\":\\\\\\\"...\\\\\\\"}\\\"}\"; " +
-                "    fi " +
-                "  '; " +
-                "done"
-            ]
+            env_vars = {
+                "CHAIN_ID": chain_id,
+                "NODE_URL": "http://{}:26657".format(first_node.ip_address),
+                "TRANSFER_AMOUNT": transfer_amount,
+                "PORT": "8090",
+                "MONITORING_PORT": "8091"
+            }
         )
     )
