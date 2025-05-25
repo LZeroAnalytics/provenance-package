@@ -359,14 +359,14 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Remove unsupported crisis module parameters
+        # Remove unsupported module parameters
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.crisis.params)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.crisis.params) | del(.app_state.metadata.params.max_value_length)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
                 ]
             )
         )
