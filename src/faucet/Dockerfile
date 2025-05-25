@@ -3,7 +3,7 @@ FROM provenanceio/provenance:latest
 # Install required packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    netcat-openbsd \
+    netcat \
     curl \
     jq \
     && rm -rf /var/lib/apt/lists/*
