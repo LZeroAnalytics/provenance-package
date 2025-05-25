@@ -374,11 +374,17 @@ def generate_genesis_files(plan, parsed_args):
                       "client_genesis": {
                         "clients": [],
                         "clients_consensus": [],
-                        "create_localhost": false
+                        "create_localhost": false,
+                        "params": {
+                          "allowed_clients": ["06-solomachine", "07-tendermint"]
+                        }
                       },
                       "connection_genesis": {
                         "connections": [],
-                        "client_connection_paths": []
+                        "client_connection_paths": [],
+                        "params": {
+                          "max_expected_time_per_block": "30000000000"
+                        }
                       },
                       "channel_genesis": {
                         "channels": [],
@@ -387,7 +393,12 @@ def generate_genesis_files(plan, parsed_args):
                         "receipts": [],
                         "send_sequences": [],
                         "recv_sequences": [],
-                        "ack_sequences": []
+                        "ack_sequences": [],
+                        "params": {
+                          "upgrade_timeout": {
+                            "timeout_timestamp": "9000000000000000000"
+                          }
+                        }
                       }
                     }' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json
                     """
