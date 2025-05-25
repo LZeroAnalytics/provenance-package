@@ -85,7 +85,6 @@ def run(plan, args):
         
         # Give the node some time to start
         plan.print("Waiting for node to start...")
-        # Use a simple exec command with sleep to wait instead of time.sleep
         plan.exec(
             service_name = first_node,
             recipe = ExecRecipe(
@@ -97,39 +96,60 @@ def run(plan, args):
             )
         )
         
-        # Try to check if RPC is available
-        try:
+        # Check if RPC is available
+        rpc_check = plan.exec(
+            service_name = first_node,
+            recipe = ExecRecipe(
+                command=[
+                    "/bin/sh", 
+                    "-c", 
+                    "curl -s http://localhost:26657/status || echo 'RPC not available'"
+                ]
+            )
+        )
+        plan.print("RPC check result: {}".format(rpc_check["output"]))
+        
+        # Only wait for blocks if RPC is available
+        if "RPC not available" not in rpc_check["output"]:
             # Wait until first block is produced before deploying additional services
-            plan.wait(
+            plan.print("RPC is available, waiting for first block...")
+            
+            # Use a non-blocking approach to wait for blocks
+            wait_success = False
+            
+            # Try to wait for blocks
+            wait_result = plan.exec(
                 service_name = first_node,
-                recipe = GetHttpRequestRecipe(
-                    port_id = "rpc",
-                    endpoint = "/status",
-                    extract = {
-                        "block": ".result.sync_info.latest_block_height"
-                    }
-                ),
-                field = "extract.block",
-                assertion = ">=",
-                target_value = "1",
-                interval = "2s",
-                timeout = "2m",
-                description = "Waiting for first block for chain " + chain_name
+                recipe = ExecRecipe(
+                    command=[
+                        "/bin/sh", 
+                        "-c", 
+                        "for i in $(seq 1 60); do block_height=$(curl -s http://localhost:26657/status | jq -r '.result.sync_info.latest_block_height' 2>/dev/null); if [ \"$block_height\" != \"null\" ] && [ \"$block_height\" -ge 1 ]; then echo \"Block height: $block_height\"; exit 0; fi; echo \"Waiting for first block... ($i/60)\"; sleep 2; done; echo 'Timeout waiting for blocks'; exit 1"
+                    ]
+                )
             )
             
-            # Launch additional services as specified in the configuration
-            for service in service_launchers:
-                if service in additional_services:
-                    plan.print("Launching {} for chain {}".format(service, chain_name))
-                    if service == "faucet":
-                        faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
-                        transfer_amount = services["faucet"]["transfer_amount"]
-                        service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
-                    elif service == "bdjuno":
-                        service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
-        except Exception as e:
-            plan.print("Error waiting for node to start: {}".format(str(e)))
-            plan.print("Continuing without additional services")
+            plan.print("Wait for blocks result: {}".format(wait_result["output"]))
+            
+            if wait_result["code"] == 0:
+                wait_success = True
+                plan.print("Successfully found blocks, launching additional services")
+            
+            # Launch additional services if blocks are available
+            if wait_success:
+                for service in service_launchers:
+                    if service in additional_services:
+                        plan.print("Launching {} for chain {}".format(service, chain_name))
+                        if service == "faucet":
+                            faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
+                            transfer_amount = services["faucet"]["transfer_amount"]
+                            service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
+                        elif service == "bdjuno":
+                            service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
+            else:
+                plan.print("Could not verify blocks, skipping additional services")
+        else:
+            plan.print("RPC not available, skipping additional services")
 
     # Print the genesis files for reference
     plan.print(genesis_files)
