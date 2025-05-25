@@ -366,7 +366,7 @@ def generate_genesis_files(plan, parsed_args):
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.crisis.params) | del(.app_state.metadata.params.max_value_length)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.crisis.params) | del(.app_state.metadata.params.max_value_length) | del(.app_state.ibc.client_genesis.params) | del(.app_state.ibc.connection_genesis.params) | del(.app_state.ibc.channel_genesis.params)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
                 ]
             )
         )
