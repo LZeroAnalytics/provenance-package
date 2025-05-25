@@ -21,12 +21,15 @@ def launch_faucet(plan, chain_name, chain_id, mnemonic, transfer_amount):
     # Use the Provenance image directly
     faucet_image = "provenanceio/provenance:latest"
 
-    # Create faucet script files artifact
-    faucet_script = plan.store_files(
-        name = "{}-faucet-script".format(chain_name),
-        files = {
-            "faucet.sh": read_file("src/faucet/faucet.sh")
-        }
+    # Create faucet script as a template
+    faucet_script = plan.render_templates(
+        config = {
+            "faucet.sh": struct(
+                template = read_file("src/faucet/faucet.sh"),
+                data = {}
+            )
+        },
+        name="{}-faucet-script".format(chain_name)
     )
 
     # Launch the faucet service
