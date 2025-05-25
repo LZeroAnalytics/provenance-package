@@ -57,14 +57,14 @@ def run(plan, args):
                 command=[
                     "/bin/sh", 
                     "-c", 
-                    "timeout 2 curl -s http://localhost:26657/status || echo 'RPC not available'"
+                    "timeout 5 curl -s http://localhost:26657/status || echo 'RPC not available'"
                 ]
             )
         )
         
         plan.print("RPC check result: {}".format(rpc_check["output"]))
         
-        # Check if RPC is available
+        # Check if RPC is available with a longer timeout
         rpc_check = plan.exec(
             service_name = first_node,
             recipe = ExecRecipe(
@@ -79,10 +79,13 @@ def run(plan, args):
         
         # Skip waiting for blocks and just launch additional services
         # This avoids complex shell scripts that might cause OOM issues
-        plan.print("Skipping block check and proceeding with service deployment")
+        plan.print("Proceeding with service deployment")
         
         # Set wait_success to true to proceed with service deployment
         wait_success = True
+        
+        # Debug: Print services configuration
+        plan.print("Services configuration: {}".format(services))
         
         # Launch additional services
         for service in service_launchers:

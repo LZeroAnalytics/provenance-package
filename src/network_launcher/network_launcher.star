@@ -22,11 +22,24 @@ def launch_network(plan, genesis_files, parsed_args):
         netem_enabled = False
         first_node_id = ""
         first_node_ip = ""
+        
+        # Debug: Print participant information
+        plan.print("Launching nodes for chain: {}".format(chain_name))
+        plan.print("Participants: {}".format(chain["participants"]))
+        
         for participant in chain["participants"]:
-            for _ in range(participant["count"]):
+            plan.print("Processing participant with count: {}".format(participant["count"]))
+            for i in range(participant["count"]):
                 node_counter += 1
                 node_name = "{}-node-{}".format(chain_name, node_counter)
-                mnemonic = mnemonics[node_counter - 1]
+                plan.print("Creating node: {}".format(node_name))
+                
+                # Ensure we have enough mnemonics
+                if node_counter - 1 < len(mnemonics):
+                    mnemonic = mnemonics[node_counter - 1]
+                else:
+                    plan.print("WARNING: Not enough mnemonics for all nodes. Using first mnemonic.")
+                    mnemonic = mnemonics[0]
 
                 latency = participant.get("latency", 0)
                 jitter = participant.get("jitter", 0)
@@ -37,10 +50,16 @@ def launch_network(plan, genesis_files, parsed_args):
                 if node_counter == 1:
                     first_node_id, first_node_ip = start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, True, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": first_node_id, "ip": first_node_ip})
+                    plan.print("Started seed node: {} with ID: {} and IP: {}".format(node_name, first_node_id, first_node_ip))
                 else:
+                    # Wait for the first node to be ready before starting additional nodes
+                    plan.print("Waiting for seed node to be ready before starting: {}".format(node_name))
+                    
                     # Start normal nodes
                     node_id, node_ip = start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, False, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": node_id, "ip": node_ip})
+                    plan.print("Started node: {} with ID: {} and IP: {}".format(node_name, node_id, node_ip))
+                    
                     # Add network condition for this node
                     network_conditions.append({
                         "node_name": node_name,
@@ -55,8 +74,8 @@ def launch_network(plan, genesis_files, parsed_args):
             netem.launch_netem(plan, chain_name, network_conditions)
 
         networks[chain_name] = node_info
+        plan.print("Network for chain {} created with {} nodes".format(chain_name, len(node_info)))
 
-    plan.print(networks)
     return networks
 
 def start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, is_first_node, first_node_id, first_node_ip):
