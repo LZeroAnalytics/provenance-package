@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Simplified startup script with minimal resource usage
+# Ultra-simplified startup script to minimize resource usage
 mkdir -p {{ .config_folder }}
 mkdir -p /var/tmp
 
@@ -10,39 +10,32 @@ chmod 777 {{ .node_id_file }}
 
 # Initialize node if not already initialized
 if [ ! -f {{ .config_folder }}/genesis.json ]; then
-    # Initialize the node
-    {{ .binary }} init node-0 --chain-id provenance-testnet-1
+    # Initialize the node with minimal output
+    {{ .binary }} init node-0 --chain-id provenance-testnet-1 > /dev/null 2>&1
     
-    # Import key from mnemonic
-    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover
+    # Import key from mnemonic (suppress output)
+    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover > /dev/null 2>&1
     
-    # Import faucet key if provided
+    # Import faucet key if provided (suppress output)
     if [ -n "{{ .faucet_mnemonic }}" ]; then
-        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover
+        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover > /dev/null 2>&1
     fi
     
     # Copy genesis file
     cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
     
-    # Configure node
-    sed -i 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config.toml
-    sed -i 's/prometheus = false/prometheus = true/g' {{ .config_folder }}/config.toml
-    sed -i 's/prometheus_listen_addr = ":26660"/prometheus_listen_addr = "{{ .prometheus_listen_addr }}"/g' {{ .config_folder }}/config.toml
+    # Minimal configuration - only essential settings
+    # Use direct file writes instead of sed to reduce memory usage
+    echo 'cors_allowed_origins = ["*"]' > {{ .config_folder }}/cors.toml
+    echo 'minimum-gas-prices = "0.025nhash"' > {{ .config_folder }}/gas.toml
     
-    # Enable API and set CORS
-    sed -i 's/enable = false/enable = true/g' {{ .config_folder }}/app.toml
-    sed -i 's/enabled-unsafe-cors = false/enabled-unsafe-cors = true/g' {{ .config_folder }}/app.toml
+    # Append minimal configs to existing files
+    cat {{ .config_folder }}/cors.toml >> {{ .config_folder }}/config.toml
+    cat {{ .config_folder }}/gas.toml >> {{ .config_folder }}/app.toml
     
-    # Set minimum gas prices
-    sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/app.toml
-    
-    # Update the node ID file with the actual node ID
-    NODE_ID=$({{ .binary }} tendermint show-node-id 2>/dev/null)
-    if [ -n "$NODE_ID" ]; then
-        echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
-        chmod 777 {{ .node_id_file }}
-    fi
+    # Clean up temp files
+    rm -f {{ .config_folder }}/cors.toml {{ .config_folder }}/gas.toml
 fi
 
-# Start the node in foreground to keep container running
-exec {{ .binary }} start {{ .rpc_options }} {{ .seed_options }} {{ .start_args }}
+# Start the node in foreground with minimal flags
+exec {{ .binary }} start --home={{ .config_folder }} --rpc.laddr=tcp://0.0.0.0:26657 {{ .seed_options }}

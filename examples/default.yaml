@@ -10,8 +10,8 @@ chains:
     participants:
       - count: 2
         image: provenanceio/provenance:latest
-        min_cpu: 400
-        min_memory: 2048
+        min_cpu: 1000
+        min_memory: 4096
         account_balance: 100000000000
         staking: true
         staking_amount: 10000000000
