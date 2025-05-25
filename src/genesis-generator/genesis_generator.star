@@ -346,8 +346,7 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Fix specific numeric values that should be strings in other modules
-        # Provenance uses a newer Cosmos SDK with flattened gov module structure
+        # Fix consensus parameters first
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
@@ -356,13 +355,31 @@ def generate_genesis_files(plan, parsed_args):
                     "-c",
                     """
                     cat /home/provenance/config/genesis.json | jq '
-                    .app_state.gov.params.min_deposit[0].amount = "10000000" | 
-                    .app_state.gov.params.voting_period = "172800s" | 
-                    .app_state.gov.params.quorum = "0.334000000000000000" | 
-                    .app_state.gov.params.threshold = "0.500000000000000000" | 
-                    .app_state.gov.params.veto_threshold = "0.334000000000000000" | 
                     .consensus_params.block.max_gas = "-1" | 
                     .consensus_params.block.max_bytes = "22020096"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    """
+                ]
+            )
+        )
+        
+        # Check if gov module exists and has the expected structure before modifying
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    """
+                    cat /home/provenance/config/genesis.json | jq '
+                    if (.app_state.gov.params != null) and (.app_state.gov.params.min_deposit | type) == "array" then
+                      .app_state.gov.params.min_deposit[0].amount = "10000000" | 
+                      .app_state.gov.params.voting_period = "172800s" | 
+                      .app_state.gov.params.quorum = "0.334000000000000000" | 
+                      .app_state.gov.params.threshold = "0.500000000000000000" | 
+                      .app_state.gov.params.veto_threshold = "0.334000000000000000"
+                    else
+                      .
+                    end' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json
                     """
                 ]
             )
