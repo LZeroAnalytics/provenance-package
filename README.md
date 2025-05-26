@@ -9,7 +9,7 @@ Specifically, this [package][package-reference] will:
 1. Generate genesis files with prefunded accounts and validators using [provenanced](https://github.com/provenance-io/provenance)
 2. Spin up networks of *n* size using the genesis data generated above
 3. Launch a faucet service to create funded accounts or fund existing accounts
-4. Spin up a [Big Dipper](https://github.com/forbole/big-dipper-2.0-cosmos) block explorer instance
+4. Spin up a Provenance Explorer instance with [explorer-service](https://github.com/provenance-io/explorer-service) and [explorer-frontend](https://github.com/provenance-io/explorer-frontend)
 5. Launch a [hermes](https://hermes.informal.systems/) IBC relayer to connect testnets (if configured)
 
 ## Quickstart
@@ -46,7 +46,7 @@ chains:
         staking_amount: 20000000000
     additional_services:
       - faucet
-      - bdjuno
+      - block_explorer
 ```
 
 ## Available Services
@@ -61,7 +61,7 @@ The faucet service allows you to create funded accounts or fund existing account
 
 ### Block Explorer
 
-The package includes a Big Dipper block explorer that allows you to view the state of the blockchain, including blocks, transactions, validators, and more.
+The package includes the official Provenance Explorer that allows you to view the state of the blockchain, including blocks, transactions, validators, and more.
 
 ## IBC Connections
 

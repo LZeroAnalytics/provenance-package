@@ -19,5 +19,5 @@ description: |
     - `participants`: Validator and node configuration
   - `connections`: IBC connections between chains (for multi-chain setups)
   - `services`: Additional services to deploy
-    - `bdjuno`: Block explorer configuration
+    - `block_explorer`: Provenance Explorer configuration
     - `faucet`: Token distribution service configuration
