@@ -39,12 +39,7 @@ def launch_explorer_frontend(plan, chain_name, explorer_service_info):
                 "REACT_APP_FEATURE_FLAG_WALLETCONNECT": "false"
             },
             min_cpu=500,
-            min_memory=512,
-            dependencies={
-                explorer_service_info["explorer_service"]: {
-                    "wait_for_ports": ["api"]
-                }
-            }
+            min_memory=512
         )
     )
     

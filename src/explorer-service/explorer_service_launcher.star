@@ -82,12 +82,7 @@ def launch_explorer_service(plan, chain_name, chain_id, node_info):
                 "EXPLORER_VOTING_POWER_PADDING": "1000000"
             },
             min_cpu=1000,
-            min_memory=1024,
-            dependencies={
-                postgres_service_name: {
-                    "wait_for_ports": ["postgres"]
-                }
-            }
+            min_memory=1024
         )
     )
     
