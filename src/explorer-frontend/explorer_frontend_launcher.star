@@ -1,7 +1,3 @@
-ServiceConfig = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").ServiceConfig
-PortSpec = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").PortSpec
-DependencyConfig = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").DependencyConfig
-
 def launch_explorer_frontend(plan, chain_name, explorer_service_info):
     """
     Launches the Provenance Explorer Frontend

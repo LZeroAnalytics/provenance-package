@@ -1,8 +1,3 @@
-ServiceConfig = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").ServiceConfig
-PortSpec = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").PortSpec
-ExecRecipe = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").ExecRecipe
-DependencyConfig = import_module("github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services").DependencyConfig
-
 def launch_explorer_service(plan, chain_name, chain_id, node_info):
     """
     Launches the Provenance Explorer Service with PostgreSQL database
