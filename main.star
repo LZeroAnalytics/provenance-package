@@ -1,6 +1,5 @@
 input_parser = import_module("./src/package_io/input_parser.star")
 genesis_generator = import_module("./src/genesis-generator/genesis_generator.star")
-bdjuno = import_module("./src/bdjuno/bdjuno_launcher.star")
 faucet = import_module("./src/faucet/faucet_launcher.star")
 network_launcher = import_module("./src/network_launcher/network_launcher.star")
 
@@ -16,8 +15,7 @@ def run(plan, args):
 
     # Define available service launchers
     service_launchers = {
-        "faucet": faucet.launch_faucet,
-        "bdjuno": bdjuno.launch_bdjuno
+        "faucet": faucet.launch_faucet
     }
 
     # Launch additional services for each chain
@@ -31,8 +29,7 @@ def run(plan, args):
         if services:
             if services.get("faucet", {}).get("enabled", False):
                 additional_services.append("faucet")
-            if services.get("block_explorer", {}).get("enabled", False):
-                additional_services.append("bdjuno")
+            # Block explorer will be added in a separate step
 
         node_info = networks[chain_name]
         node_names = []
@@ -103,8 +100,7 @@ def run(plan, args):
                     faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
                     transfer_amount = services["faucet"]["transfer_amount"]
                     service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
-                elif service == "bdjuno":
-                    service_launchers[service](plan, chain_name, chain["denom"], services["block_explorer"])
+                # Block explorer service launcher will be added in a separate step
 
     # Print the genesis files for reference
     plan.print(genesis_files)
