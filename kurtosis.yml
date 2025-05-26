@@ -1,0 +1,23 @@
+name: github.com/LZeroAnalytics/provenance-package
+description: |
+  Provenance Blockchain
+  ============
+  This Kurtosis package instantiates a private Provenance blockchain testnet. It automates genesis file generation, network launching, and deployment of auxiliary services like block explorers and faucets.
+
+  Prerequisites
+  -------------
+  - Basic understanding of Provenance blockchain architecture
+  - Knowledge of validator and node configuration parameters
+
+  Configuration
+  -------------
+  To configure this package, you'll need to provide the following information:
+  - `chains`: Configuration for each blockchain
+    - `name`: Chain name (e.g., "provenance")
+    - `chain_id`: Unique identifier for the chain
+    - `denom`: Token denomination configuration (name, display, symbol, units)
+    - `participants`: Validator and node configuration
+  - `connections`: IBC connections between chains (for multi-chain setups)
+  - `services`: Additional services to deploy
+    - `bdjuno`: Block explorer configuration
+    - `faucet`: Token distribution service configuration

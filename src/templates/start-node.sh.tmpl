@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# Ultra-simplified startup script to minimize resource usage
+mkdir -p {{ .config_folder }}
+mkdir -p /var/tmp
+
+# Create node ID file early with a default value
+echo "{\"node_id\": \"66b0a86de451b0f92e6159e13d695400e326e08b\"}" > {{ .node_id_file }}
+chmod 777 {{ .node_id_file }}
+
+# Initialize node if not already initialized
+if [ ! -f {{ .config_folder }}/genesis.json ]; then
+    # Initialize the node with minimal output
+    {{ .binary }} init node-0 --chain-id provenance-testnet-1 > /dev/null 2>&1
+    
+    # Import key from mnemonic (suppress output)
+    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover > /dev/null 2>&1
+    
+    # Import faucet key if provided (suppress output)
+    if [ -n "{{ .faucet_mnemonic }}" ]; then
+        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover > /dev/null 2>&1
+    fi
+    
+    # Copy genesis file
+    cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
+    
+    # Minimal configuration - only essential settings
+    # Use direct file writes instead of sed to reduce memory usage
+    echo 'cors_allowed_origins = ["*"]' > {{ .config_folder }}/cors.toml
+    echo 'minimum-gas-prices = "0.025nhash"' > {{ .config_folder }}/gas.toml
+    
+    # Configure p2p settings for better connectivity
+    echo 'persistent_peers = ""' > {{ .config_folder }}/p2p.toml
+    echo 'addr_book_strict = false' >> {{ .config_folder }}/p2p.toml
+    echo 'allow_duplicate_ip = true' >> {{ .config_folder }}/p2p.toml
+    
+    # Append minimal configs to existing files
+    cat {{ .config_folder }}/cors.toml >> {{ .config_folder }}/config.toml
+    cat {{ .config_folder }}/gas.toml >> {{ .config_folder }}/app.toml
+    cat {{ .config_folder }}/p2p.toml >> {{ .config_folder }}/config.toml
+    
+    # Update node ID file with actual node ID
+    NODE_ID=$({{ .binary }} tendermint show-node-id)
+    if [ -n "$NODE_ID" ]; then
+        echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
+    fi
+    
+    # Clean up temp files
+    rm -f {{ .config_folder }}/cors.toml {{ .config_folder }}/gas.toml {{ .config_folder }}/p2p.toml
+fi
+
+# Start the node in foreground with minimal flags
+exec {{ .binary }} start --home={{ .config_folder }} {{ .rpc_options }} {{ .seed_options }}

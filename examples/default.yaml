@@ -1,0 +1,41 @@
+chains:
+  - name: provenance
+    type: provenance
+    chain_id: provenance-testnet-1
+    denom:
+      name: nhash
+      display: hash
+      symbol: HASH
+      exponent: 9
+    participants:
+      - count: 2
+        image: provenanceio/provenance:latest
+        min_cpu: 1000
+        min_memory: 4096
+        account_balance: 100000000000
+        staking: true
+        staking_amount: 10000000000
+        latency: 0
+        jitter: 0
+    faucet:
+      faucet_amount: 1000000000000
+    consensus_params:
+      max_bytes: 22020096
+      max_gas: -1
+    modules:
+      staking:
+        bond_denom: "nhash"
+      mint:
+        mint_denom: "nhash"
+      gov:
+        min_deposit: "10000000"
+      distribution:
+        community_tax: "0.02"
+    services:
+      block_explorer:
+        enabled: true
+        image: tiljordan/big-dipper-ui:latest
+        chain_type: testnet
+      faucet:
+        enabled: true
+        transfer_amount: 1000000000nhash
