@@ -41,9 +41,9 @@ def launch_explorer_frontend(plan, chain_name, explorer_service_info):
             min_cpu=500,
             min_memory=512,
             dependencies={
-                explorer_service_info["explorer_service"]: DependencyConfig(
-                    wait_for_ports=["api"]
-                )
+                explorer_service_info["explorer_service"]: {
+                    "wait_for_ports": ["api"]
+                }
             }
         )
     )
