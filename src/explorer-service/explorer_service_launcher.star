@@ -79,7 +79,10 @@ def launch_explorer_service(plan, chain_name, chain_id, node_info):
                 "EXPLORER_UTILITY_TOKEN": "nhash",
                 "EXPLORER_UTILITY_TOKEN_DEFAULT_GAS_PRICE": "1905",
                 "EXPLORER_UTILITY_TOKEN_BASE_DECIMAL_PLACES": "9",
-                "EXPLORER_VOTING_POWER_PADDING": "1000000"
+                "EXPLORER_VOTING_POWER_PADDING": "1000000",
+                "EXPLORER_FEE_BUG_RANGE_ONE_ELEVEN": "1,11",
+                "EXPLORER_CHAIN_ID": chain_id,
+                "EXPLORER_CHAIN_NAME": chain_name
             },
             min_cpu=1000,
             min_memory=1024
