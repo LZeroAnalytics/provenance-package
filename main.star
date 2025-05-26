@@ -93,7 +93,7 @@ def run(plan, args):
             plan.print("WARNING: No services configured in chain. Using defaults.")
             services = {
                 "faucet": {"enabled": True, "transfer_amount": "1000000000nhash"},
-                "block_explorer": {"enabled": True, "image": "tiljordan/big-dipper-ui:latest", "chain_type": "testnet"}
+                "block_explorer": {"enabled": True, "environment": "development", "explorer_frontend_image": "provenanceio/explorer-frontend:latest", "explorer_service_image": "provenanceio/explorer-service:latest"}
             }
         
         # Launch additional services
