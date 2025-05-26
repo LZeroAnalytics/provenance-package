@@ -2,6 +2,8 @@ input_parser = import_module("./src/package_io/input_parser.star")
 genesis_generator = import_module("./src/genesis-generator/genesis_generator.star")
 faucet = import_module("./src/faucet/faucet_launcher.star")
 network_launcher = import_module("./src/network_launcher/network_launcher.star")
+explorer_service = import_module("./src/explorer-service/explorer_service_launcher.star")
+explorer_frontend = import_module("./src/explorer-frontend/explorer_frontend_launcher.star")
 
 def run(plan, args):
     # Parse input arguments
@@ -15,7 +17,8 @@ def run(plan, args):
 
     # Define available service launchers
     service_launchers = {
-        "faucet": faucet.launch_faucet
+        "faucet": faucet.launch_faucet,
+        "explorer": lambda plan, chain_name, chain_id, *args: launch_explorer(plan, chain_name, chain_id, networks[chain_name])
     }
 
     # Launch additional services for each chain
@@ -29,7 +32,8 @@ def run(plan, args):
         if services:
             if services.get("faucet", {}).get("enabled", False):
                 additional_services.append("faucet")
-            # Block explorer will be added in a separate step
+            if services.get("block_explorer", {}).get("enabled", False):
+                additional_services.append("explorer")
 
         node_info = networks[chain_name]
         node_names = []
@@ -100,7 +104,35 @@ def run(plan, args):
                     faucet_mnemonic = genesis_files[chain_name]["faucet"]["mnemonic"]
                     transfer_amount = services["faucet"]["transfer_amount"]
                     service_launchers[service](plan, chain_name, chain_id, faucet_mnemonic, transfer_amount)
-                # Block explorer service launcher will be added in a separate step
+                elif service == "explorer":
+                    service_launchers[service](plan, chain_name, chain_id)
 
     # Print the genesis files for reference
     plan.print(genesis_files)
+
+def launch_explorer(plan, chain_name, chain_id, node_info):
+    """
+    Launches the Provenance Explorer components (backend service and frontend)
+    
+    Args:
+        plan: The Kurtosis plan
+        chain_name: The name of the chain
+        chain_id: The chain ID
+        node_info: Information about the nodes in the network
+    """
+    plan.print("Launching Provenance Explorer for chain {}".format(chain_name))
+    
+    # Launch the explorer service (backend)
+    explorer_service_info = explorer_service.launch_explorer_service(plan, chain_name, chain_id, node_info)
+    
+    # Launch the explorer frontend
+    explorer_frontend_info = explorer_frontend.launch_explorer_frontend(plan, chain_name, explorer_service_info)
+    
+    # Print explorer URLs
+    plan.print("Explorer Service API URL: {}".format(explorer_service_info["explorer_url"]))
+    plan.print("Explorer Frontend URL: {}".format(explorer_frontend_info["explorer_frontend_url"]))
+    
+    return {
+        "explorer_service": explorer_service_info,
+        "explorer_frontend": explorer_frontend_info
+    }
