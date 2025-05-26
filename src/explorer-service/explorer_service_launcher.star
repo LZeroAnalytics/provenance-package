@@ -21,7 +21,7 @@ def launch_explorer_service(plan, chain_name, chain_id, node_info):
     postgres_service = plan.add_service(
         name=postgres_service_name,
         config=ServiceConfig(
-            image="provenanceio/explorer-database:latest",
+            image="postgres:13-alpine",
             ports={
                 "postgres": PortSpec(number=5432, transport_protocol="TCP")
             },
