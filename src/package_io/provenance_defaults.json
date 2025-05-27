@@ -87,20 +87,14 @@
   "services": {
     "block_explorer": {
       "enabled": true,
-      "image": "tiljordan/big-dipper-ui:latest",
-      "chain_type": "testnet"
+      "explorer_service_image": "provenanceio/explorer-service:latest",
+      "explorer_frontend_image": "provenanceio/explorer-frontend:latest",
+      "environment": "development"
     },
     "faucet": {
       "enabled": true,
       "transfer_amount": "1000000000nhash"
     }
-  },
-  "block_explorer": {
-    "harusa_url": "",
-    "harusa_ws": "",
-    "node_rpc_url": "",
-    "image": "tiljordan/big-dipper-ui:latest",
-    "chain_type": "testnet"
   },
   "participants": [
     {
@@ -109,14 +103,11 @@
       "staking_amount": 20000000000,
       "count": 1,
       "staking": true,
-      "latency": 0,
-      "jitter": 0,
       "min_cpu": 500,
       "min_memory": 512
     }
   ],
   "additional_services": [
-    "faucet",
-    "bdjuno"
+    "faucet"
   ]
 }

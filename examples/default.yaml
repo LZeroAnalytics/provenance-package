@@ -15,8 +15,6 @@ chains:
         account_balance: 100000000000
         staking: true
         staking_amount: 10000000000
-        latency: 0
-        jitter: 0
     faucet:
       faucet_amount: 1000000000000
     consensus_params:
@@ -34,8 +32,9 @@ chains:
     services:
       block_explorer:
         enabled: true
-        image: tiljordan/big-dipper-ui:latest
-        chain_type: testnet
+        explorer_service_image: "provenanceio/explorer-service:latest"
+        explorer_frontend_image: "provenanceio/explorer-frontend:latest"
+        environment: "development"
       faucet:
         enabled: true
         transfer_amount: 1000000000nhash

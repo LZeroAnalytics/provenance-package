@@ -1,5 +1,3 @@
-netem = import_module("../netem/netem_launcher.star")
-
 def launch_network(plan, genesis_files, parsed_args):
     networks = {}
     for chain in parsed_args["chains"]:
@@ -18,8 +16,6 @@ def launch_network(plan, genesis_files, parsed_args):
         # Launch nodes for each participant
         node_counter = 0
         node_info = []
-        network_conditions = []
-        netem_enabled = False
         first_node_id = ""
         first_node_ip = ""
         
@@ -41,14 +37,11 @@ def launch_network(plan, genesis_files, parsed_args):
                     plan.print("WARNING: Not enough mnemonics for all nodes. Using first mnemonic.")
                     mnemonic = mnemonics[0]
 
-                latency = participant.get("latency", 0)
-                jitter = participant.get("jitter", 0)
-                if latency > 0:
-                    netem_enabled = True
+                # Network emulation code removed
 
                 # Start seed node
                 if node_counter == 1:
-                    first_node_id, first_node_ip = start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, True, first_node_id, first_node_ip)
+                    first_node_id, first_node_ip = start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, True, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": first_node_id, "ip": first_node_ip})
                     plan.print("Started seed node: {} with ID: {} and IP: {}".format(node_name, first_node_id, first_node_ip))
                 else:
@@ -56,37 +49,25 @@ def launch_network(plan, genesis_files, parsed_args):
                     plan.print("Waiting for seed node to be ready before starting: {}".format(node_name))
                     
                     # Start normal nodes
-                    node_id, node_ip = start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, False, first_node_id, first_node_ip)
+                    node_id, node_ip = start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, False, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": node_id, "ip": node_ip})
                     plan.print("Started node: {} with ID: {} and IP: {}".format(node_name, node_id, node_ip))
-                    
-                    # Add network condition for this node
-                    network_conditions.append({
-                        "node_name": node_name,
-                        "target_ip": node_ip,
-                        "target_port": 26656,
-                        "latency": latency,
-                        "jitter": jitter
-                    })
 
-        # Launch toxiproxy and configure network conditions
-        if netem_enabled:
-            netem.launch_netem(plan, chain_name, network_conditions)
+        # Network emulation code removed
 
         networks[chain_name] = node_info
         plan.print("Network for chain {} created with {} nodes".format(chain_name, len(node_info)))
 
     return networks
 
-def start_node(plan, node_name, netem_enabled, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, is_first_node, first_node_id, first_node_ip):
+def start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, is_first_node, first_node_id, first_node_ip):
     # Path where the node ID will be stored
     node_id_file = "/var/tmp/{}.node_id".format(node_name)
     faucet_mnemonic = faucet_data["mnemonic"] if is_first_node and faucet_data else ""
 
     seed_options = ""
     if not is_first_node:
-        proxy_port = (8475 + (int(node_name.split('-')[-1]) - 1)) if netem_enabled else 26656
-        seed_address = "{}@{}:{}".format(first_node_id, first_node_ip, proxy_port)
+        seed_address = "{}@{}:{}".format(first_node_id, first_node_ip, 26656)
         seed_options = "--p2p.seeds {}".format(seed_address)
 
     node_config_data = {

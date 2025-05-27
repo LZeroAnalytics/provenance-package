@@ -9,11 +9,6 @@ DEFAULT_RELAYER_CONFIG = {
     "hermes_image": "tiljordan/hermes:latest"
 }
 
-DEFAULT_NETEM_CONFIG = {
-    "image": "shopify/toxiproxy:latest",
-    "network_conditions": []
-}
-
 def apply_chain_defaults(chain, defaults):
     # Simple key-value defaults
     chain["name"] = chain.get("name", defaults["name"])
@@ -21,7 +16,6 @@ def apply_chain_defaults(chain, defaults):
     chain["chain_id"] = chain.get("chain_id", defaults["chain_id"])
     chain["genesis_delay"] = chain.get("genesis_delay", defaults["genesis_delay"])
     chain["initial_height"] = chain.get("initial_height", defaults["initial_height"])
-    chain["block_explorer"] = chain.get("block_explorer", defaults["block_explorer"])
 
     # Nested defaults
     chain["denom"] = chain.get("denom", {})
@@ -62,8 +56,7 @@ def input_parser(args):
     # Initialize with default values
     parsed_args = {
         "chains": [],
-        "connections": [],
-        "netem": DEFAULT_NETEM_CONFIG
+        "connections": []
     }
     
     # If no args provided, use defaults
@@ -85,8 +78,6 @@ def input_parser(args):
     if "connections" in args:
         parsed_args["connections"] = args["connections"]
     
-    # Parse network emulation settings
-    if "netem" in args:
-        parsed_args["netem"] = args["netem"]
+    # Network emulation settings removed
     
     return parsed_args
