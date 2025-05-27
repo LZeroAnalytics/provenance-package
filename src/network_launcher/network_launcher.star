@@ -152,17 +152,7 @@ def start_node(plan, chain_name, node_name, participant, binary, start_args, con
         files["/tmp/validator_key"] = validator_key_file
         plan.print("Added validator key to first node using validator key artifact")
         
-        # Debug the validator key content
-        plan.exec(
-            service_name="{}-genesis-generator".format(chain_name),
-            recipe=ExecRecipe(
-                command=[
-                    "/bin/sh",
-                    "-c",
-                    "cat /tmp/validator_key.json"
-                ]
-            )
-        )
+        # Debug the validator key content - removed as genesis generator is already removed at this point
         
         # Explicitly set is_validator flag to ensure validator mode is enabled
         node_config_data["is_validator"] = True
