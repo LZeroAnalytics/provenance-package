@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Set validator mode in config.toml
+sed -i 's/mode = "full"/mode = "validator"/g' {{ .config_folder }}/config.toml
+
+# Ensure create_empty_blocks is set to true
+sed -i 's/create_empty_blocks = false/create_empty_blocks = true/g' {{ .config_folder }}/config.toml
+
+# Set create_empty_blocks_interval to 5s
+sed -i 's/create_empty_blocks_interval = "0s"/create_empty_blocks_interval = "5s"/g' {{ .config_folder }}/config.toml
+
+# Ensure we're using the validator key
+sed -i 's/priv_validator_laddr = ""/priv_validator_laddr = "tcp://0.0.0.0:26658"/g' {{ .config_folder }}/config.toml
+
+# Force node to produce blocks even without transactions
+echo "Configured node to produce blocks in validator mode"

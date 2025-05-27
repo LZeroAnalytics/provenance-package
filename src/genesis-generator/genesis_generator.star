@@ -116,17 +116,50 @@ def generate_genesis_files(plan, parsed_args):
                             )
                         )
                     
+                    # Create validator with more detailed parameters
                     plan.exec(
                         service_name="{}-genesis-generator".format(chain_name),
                         recipe=ExecRecipe(
                             command=[
                                 "/bin/sh",
                                 "-c",
-                                "provenanced genesis gentx node-{} {}{}".format(
+                                """
+                                # Get the delegator address (for logging only)
+                                DELEGATOR_ADDR=$(provenanced keys show node-{} -a --keyring-backend test)
+                                echo "Delegator address: $DELEGATOR_ADDR"
+                                
+                                # Create validator transaction (Provenance doesn't support --delegator-address flag)
+                                provenanced genesis gentx node-{} {}{} \\
+                                  --chain-id {} \\
+                                  --keyring-backend test \\
+                                  --moniker=node-{} \\
+                                  --commission-rate=0.1 \\
+                                  --commission-max-rate=0.2 \\
+                                  --commission-max-change-rate=0.01 \\
+                                  --min-self-delegation=1 \\
+                                  --details="Validator {}" \\
+                                  --ip="0.0.0.0"
+                                """.format(
+                                    node_index,
                                     node_index,
                                     participant["staking_amount"],
-                                    denom
-                                ) + " --chain-id {} --keyring-backend test".format(chain_id)
+                                    denom,
+                                    chain_id,
+                                    node_index,
+                                    node_index
+                                )
+                            ]
+                        )
+                    )
+                    
+                    # Verify the gentx was created successfully
+                    plan.exec(
+                        service_name="{}-genesis-generator".format(chain_name),
+                        recipe=ExecRecipe(
+                            command=[
+                                "/bin/sh",
+                                "-c",
+                                "ls -la /home/provenance/config/gentx/ && cat /home/provenance/config/gentx/*.json | jq '.body.messages[0].validator_address'"
                             ]
                         )
                     )
@@ -178,14 +211,23 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Collect transactions
+        # Skip collecting gentx transactions since we're manually setting up validators
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
                     "/bin/sh",
                     "-c",
-                    "provenanced genesis collect-gentxs"
+                    """
+                    # Remove any gentx files to avoid conflicts with our manual validator setup
+                    rm -f /home/provenance/config/gentx/*.json
+                    
+                    # Create empty gentxs array in genesis to avoid conflicts
+                    cat /home/provenance/config/genesis.json | jq '.app_state.genutil.gen_txs = []' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    echo "Skipping gentx collection to avoid validator conflicts"
+                    """
                 ]
             )
         )
@@ -198,6 +240,97 @@ def generate_genesis_files(plan, parsed_args):
                     "/bin/sh",
                     "-c",
                     "provenanced genesis validate"
+                ]
+            )
+        )
+        
+        # Manually set validator power in genesis file
+        plan.exec(
+            service_name="{}-genesis-generator".format(chain_name),
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    """
+                    # Get validator address
+                    VALIDATOR_ADDR=$(provenanced keys show node-1 -a --bech val --keyring-backend test)
+                    echo "Setting validator power for $VALIDATOR_ADDR"
+                    
+                    # Get validator pubkey and save it for later use
+                    VALIDATOR_PUBKEY=$(provenanced tendermint show-validator)
+                    echo "Validator pubkey: $VALIDATOR_PUBKEY"
+                    
+                    # Save the validator key for nodes to use
+                    cp /home/provenance/config/priv_validator_key.json /tmp/validator_key.json
+                    chmod 644 /tmp/validator_key.json
+                    echo "Saved validator key to /tmp/validator_key.json"
+                    cat /tmp/validator_key.json
+                    
+                    # Create a special marker file to indicate this is the genesis validator key
+                    echo "GENESIS_VALIDATOR_KEY" > /tmp/validator_key.marker
+                    
+                    # Create a directory structure for validator key
+                    mkdir -p /tmp/validator_key
+                    cp /home/provenance/config/priv_validator_key.json /tmp/validator_key/validator_key.json
+                    chmod 644 /tmp/validator_key/validator_key.json
+                    echo "Copied validator key to /tmp/validator_key/validator_key.json"
+                    cat /tmp/validator_key/validator_key.json
+                    
+                    # Create validator state file to ensure proper initialization
+                    mkdir -p /home/provenance/config/data
+                    echo "{}" > /home/provenance/config/data/priv_validator_state.json
+                    chmod 600 /home/provenance/config/data/priv_validator_state.json
+                    
+                    # Update consensus params to ensure block production
+                    cat /home/provenance/config/genesis.json | jq '.consensus_params.block.time_iota_ms = "1000"' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Update validator in genesis file - set power to a higher value
+                    cat /home/provenance/config/genesis.json | jq '.validators = [{"address": "'$VALIDATOR_ADDR'", "pub_key": '$VALIDATOR_PUBKEY', "power": "10000000", "name": "node-1"}]' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Verify validator is properly set in genesis
+                    echo "Validator in genesis:"
+                    cat /home/provenance/config/genesis.json | jq '.validators'
+                    
+                    # Ensure validator is properly set in consensus state
+                    cat /home/provenance/config/genesis.json | jq '.consensus_state.validators = [{"address": "'$VALIDATOR_ADDR'", "pub_key": '$VALIDATOR_PUBKEY', "voting_power": "10000000"}]' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Update staking module validators - ensure BOND_STATUS_BONDED
+                    cat /home/provenance/config/genesis.json | jq '.app_state.staking.validators = [{"operator_address": "'$VALIDATOR_ADDR'", "consensus_pubkey": '$VALIDATOR_PUBKEY', "jailed": false, "status": "BOND_STATUS_BONDED", "tokens": "10000000", "delegator_shares": "10000000.000000000000000000", "description": {"moniker": "node-1", "identity": "", "website": "", "security_contact": "", "details": "Validator 1"}, "unbonding_height": "0", "unbonding_time": "1970-01-01T00:00:00Z", "commission": {"commission_rates": {"rate": "0.100000000000000000", "max_rate": "0.200000000000000000", "max_change_rate": "0.010000000000000000"}, "update_time": "2023-01-01T00:00:00Z"}, "min_self_delegation": "1"}]' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Get the delegator address (convert validator address to account address)
+                    DELEGATOR_ADDR=$(provenanced keys show node-1 -a --keyring-backend test)
+                    echo "Adding delegation from $DELEGATOR_ADDR to $VALIDATOR_ADDR"
+                    
+                    # Add delegation to match validator shares
+                    cat /home/provenance/config/genesis.json | jq --arg del_addr "$DELEGATOR_ADDR" --arg val_addr "$VALIDATOR_ADDR" '
+                    .app_state.staking.delegations = [
+                      {
+                        "delegator_address": $del_addr,
+                        "validator_address": $val_addr,
+                        "shares": "10000000.000000000000000000"
+                      }
+                    ]' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Verify the delegation was added correctly
+                    echo "Verifying delegation in genesis:"
+                    cat /home/provenance/config/genesis.json | jq '.app_state.staking.delegations'
+                    
+                    # Update last validator powers
+                    cat /home/provenance/config/genesis.json | jq '.app_state.staking.last_validator_powers = [{"address": "'$VALIDATOR_ADDR'", "power": "10000000"}]' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Update last total power
+                    cat /home/provenance/config/genesis.json | jq '.app_state.staking.last_total_power = "10000000"' > /tmp/genesis.json
+                    mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Verify validator setup
+                    cat /home/provenance/config/genesis.json | jq '.validators[0], .app_state.staking.validators[0]'
+                    """
                 ]
             )
         )
@@ -285,14 +418,68 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Fix staking module parameters - remove min_self_delegation field which is not supported in this version
+        # Fix staking module parameters and ensure bonded pool balance matches bonded coins
+        # Fix staking module parameters and ensure bonded pool balance matches bonded coins
+        # Use the correct bonded pool address for Provenance and fix total supply
         plan.exec(
             service_name="{}-genesis-generator".format(chain_name),
             recipe=ExecRecipe(
                 command=[
                     "/bin/sh",
                     "-c",
-                    "cat /home/provenance/config/genesis.json | jq 'del(.app_state.staking.params.min_self_delegation)' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json"
+                    """
+                    # Use the correct bonded pool address for Provenance
+                    BONDED_POOL_ADDR="pb1fl48vsnmsdzcv85q5d2q4z5ajdha8yu3u4z25t"
+                    
+                    echo "Using bonded pool address: $BONDED_POOL_ADDR"
+                    
+                    # Calculate the sum of all account balances to ensure it matches the total supply
+                    TOTAL_BALANCE=$(cat /home/provenance/config/genesis.json | jq -r '.app_state.bank.balances | map(.coins[] | select(.denom == "nhash") | .amount | tonumber) | add')
+                    echo "Total balance sum: $TOTAL_BALANCE"
+                    
+                    # First calculate the sum without the bonded pool
+                    TOTAL_BALANCE=$(cat /home/provenance/config/genesis.json | jq -r '.app_state.bank.balances | map(select(.address != "'$BONDED_POOL_ADDR'") | .coins[] | select(.denom == "nhash") | .amount | tonumber) | add')
+                    
+                    # Add the bonded pool amount to get the final total
+                    CORRECT_SUPPLY=$(($TOTAL_BALANCE + 10000000))
+                    echo "Setting total supply to: $CORRECT_SUPPLY"
+                    
+                    # Update the genesis file with correct bonded pool address and total supply
+                    cat /home/provenance/config/genesis.json | jq --arg addr "$BONDED_POOL_ADDR" --arg supply "$CORRECT_SUPPLY" '
+                    del(.app_state.staking.params.min_self_delegation) |
+                    .app_state.bank.balances = (.app_state.bank.balances | map(select(.address != $addr))) |
+                    .app_state.bank.balances += [
+                      {
+                        "address": $addr,
+                        "coins": [
+                          {
+                            "denom": "nhash",
+                            "amount": "10000000"
+                          }
+                        ]
+                      }
+                    ] |
+                    .app_state.bank.supply[0].amount = $supply |
+                    .app_state.staking.params.bond_denom = "nhash"' > /tmp/genesis.json && mv /tmp/genesis.json /home/provenance/config/genesis.json
+                    
+                    # Recalculate the sum after changes to verify
+                    NEW_TOTAL=$(cat /home/provenance/config/genesis.json | jq -r '.app_state.bank.balances | map(.coins[] | select(.denom == "nhash") | .amount | tonumber) | add')
+                    echo "New total balance sum: $NEW_TOTAL"
+                    
+                    # Verify the bonded pool address and total supply are correctly set
+                    echo "Bonded pool balance:"
+                    cat /home/provenance/config/genesis.json | jq '.app_state.bank.balances[] | select(.address == "'$BONDED_POOL_ADDR'")'
+                    echo "Total supply:"
+                    cat /home/provenance/config/genesis.json | jq '.app_state.bank.supply'
+                    
+                    # Final verification that supply matches balances
+                    FINAL_SUPPLY=$(cat /home/provenance/config/genesis.json | jq -r '.app_state.bank.supply[0].amount')
+                    if [ "$FINAL_SUPPLY" = "$NEW_TOTAL" ]; then
+                        echo "SUCCESS: Total supply matches sum of all balances"
+                    else
+                        echo "ERROR: Supply mismatch! Supply: $FINAL_SUPPLY, Sum: $NEW_TOTAL"
+                    fi
+                    """
                 ]
             )
         )
@@ -474,16 +661,24 @@ def generate_genesis_files(plan, parsed_args):
             )
         )
         
-        # Store the genesis file
+        # Store the genesis file as a files artifact
         genesis_file = plan.store_service_files(
             service_name="{}-genesis-generator".format(chain_name),
             src="/home/provenance/config/genesis.json",
             name="{}-genesis-file".format(chain_name)
         )
         
-        # Store the genesis data
+        # Store the validator key as a files artifact
+        validator_key_file = plan.store_service_files(
+            service_name="{}-genesis-generator".format(chain_name),
+            src="/tmp/validator_key.json",
+            name="{}-validator-key-file".format(chain_name)
+        )
+        
+        # Store the genesis data with file artifacts
         genesis_files[chain_name] = {
             "genesis_file": genesis_file,
+            "validator_key_file": validator_key_file,
             "addresses": addresses,
             "mnemonics": mnemonics,
             "faucet": {
