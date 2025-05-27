@@ -9,7 +9,11 @@ def launch_network(plan, genesis_files, parsed_args):
 
         # Get the genesis file and related data
         genesis_data = genesis_files[chain_name]
+        
+        # Get the genesis file and validator key file artifacts
         genesis_file = genesis_data["genesis_file"]
+        validator_key_file = genesis_data["validator_key_file"]
+        
         mnemonics = genesis_data["mnemonics"]
         faucet_data = genesis_data.get("faucet", None)
 
@@ -37,39 +41,62 @@ def launch_network(plan, genesis_files, parsed_args):
                     plan.print("WARNING: Not enough mnemonics for all nodes. Using first mnemonic.")
                     mnemonic = mnemonics[0]
 
-                # Network emulation code removed
-
                 # Start seed node
                 if node_counter == 1:
-                    first_node_id, first_node_ip = start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, True, first_node_id, first_node_ip)
+                    first_node_id, first_node_ip = start_node(plan, chain_name, node_name, participant, binary, start_args, config_folder, genesis_file, validator_key_file, mnemonic, faucet_data, True, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": first_node_id, "ip": first_node_ip})
                     plan.print("Started seed node: {} with ID: {} and IP: {}".format(node_name, first_node_id, first_node_ip))
+                    
+                    # Wait for the seed node to be ready
+                    plan.print("Waiting for seed node RPC to be available...")
+                    
+                    # Wait for RPC to be available with a timeout
+                    rpc_check = plan.wait(
+                        service_name=node_name,
+                        recipe=ExecRecipe(
+                            command=[
+                                "/bin/sh", 
+                                "-c", 
+                                "curl -s http://localhost:26657/status"
+                            ]
+                        ),
+                        field="code",
+                        assertion="==",
+                        target_value=0,
+                        timeout="2m",
+                        interval="5s"
+                    )
+                    
+                    plan.print("Seed node {} is ready and accepting connections".format(node_name))
                 else:
                     # Wait for the first node to be ready before starting additional nodes
-                    plan.print("Waiting for seed node to be ready before starting: {}".format(node_name))
+                    plan.print("Starting node: {}".format(node_name))
                     
                     # Start normal nodes
-                    node_id, node_ip = start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, False, first_node_id, first_node_ip)
+                    node_id, node_ip = start_node(plan, chain_name, node_name, participant, binary, start_args, config_folder, genesis_file, validator_key_file, mnemonic, faucet_data, False, first_node_id, first_node_ip)
                     node_info.append({"name": node_name, "node_id": node_id, "ip": node_ip})
                     plan.print("Started node: {} with ID: {} and IP: {}".format(node_name, node_id, node_ip))
-
-        # Network emulation code removed
 
         networks[chain_name] = node_info
         plan.print("Network for chain {} created with {} nodes".format(chain_name, len(node_info)))
 
     return networks
 
-def start_node(plan, node_name, participant, binary, start_args, config_folder, genesis_file, mnemonic, faucet_data, is_first_node, first_node_id, first_node_ip):
+def start_node(plan, chain_name, node_name, participant, binary, start_args, config_folder, genesis_file, validator_key_file, mnemonic, faucet_data, is_first_node, first_node_id, first_node_ip):
+    """
+    Starts a node using the template-based approach similar to cosmos-package.
+    """
     # Path where the node ID will be stored
     node_id_file = "/var/tmp/{}.node_id".format(node_name)
     faucet_mnemonic = faucet_data["mnemonic"] if is_first_node and faucet_data else ""
 
+    # Configure seed options for non-seed nodes
     seed_options = ""
     if not is_first_node:
         seed_address = "{}@{}:{}".format(first_node_id, first_node_ip, 26656)
-        seed_options = "--p2p.seeds {}".format(seed_address)
+        seed_options = "--p2p.seeds {} --p2p.persistent_peers {}".format(seed_address, seed_address)
 
+    # Prepare node configuration data
     node_config_data = {
         "binary": binary,
         "config_folder": config_folder,
@@ -82,7 +109,8 @@ def start_node(plan, node_name, participant, binary, start_args, config_folder, 
         "start_args": start_args,
         "prometheus_listen_addr": "0.0.0.0:26660",
         "cors_allowed_origins": "*",
-        "node_id_file": node_id_file
+        "node_id_file": node_id_file,
+        "is_validator": is_first_node
     }
 
     # Render the start-node.sh script template
@@ -96,11 +124,38 @@ def start_node(plan, node_name, participant, binary, start_args, config_folder, 
         name="{}-start-script".format(node_name)
     )
 
-    # Add genesis file to the node
+    # Add files to the node
     files = {
         "/tmp/genesis": genesis_file,
         "/usr/local/bin": start_node_script
     }
+    
+    # For the first node, add validator key
+    if is_first_node:
+        # Create validator config directory
+        validator_config = plan.render_templates(
+            config={
+                "validator-config.sh": struct(
+                    template=read_file("../templates/validator-config.sh.tmpl"),
+                    data={"config_folder": config_folder}
+                ),
+                "validator_key.json": struct(
+                    template=read_file("templates/validator_key.json.tmpl"),
+                    data={}
+                )
+            },
+            name="{}-validator-config".format(node_name)
+        )
+        
+        # Add validator config and key files
+        files["/usr/local/bin/validator-config"] = validator_config
+        files["/tmp/validator_key"] = validator_key_file
+        plan.print("Added validator key to first node using validator key artifact")
+        
+        # Debug the validator key content - removed as genesis generator is already removed at this point
+        
+        # Explicitly set is_validator flag to ensure validator mode is enabled
+        node_config_data["is_validator"] = True
 
     # Launch the node service
     node_service = plan.add_service(
@@ -117,72 +172,112 @@ def start_node(plan, node_name, participant, binary, start_args, config_folder, 
                 "p-prof": PortSpec(number=6060, transport_protocol="TCP", wait=None),
                 "prometheus": PortSpec(number=26660, transport_protocol="TCP", wait=None)
             },
-            min_cpu=participant["min_cpu"],
-            min_memory=participant["min_memory"],
+            min_cpu=participant.get("min_cpu", 1000),
+            min_memory=8192,  # Increase memory to 8GB
+            env_vars={
+                "PROVENANCE_PRUNING": "nothing",
+                "PROVENANCE_LOG_LEVEL": "info",
+                "GOMAXPROCS": "2"
+            },
             cmd=["/bin/sh", "/usr/local/bin/start-node.sh"]
         )
     )
 
     node_ip = node_service.ip_address
+    
+    # Debug: Print validator key information if this is the first node
+    if is_first_node:
+        plan.exec(
+            service_name=node_name,
+            recipe=ExecRecipe(
+                command=[
+                    "/bin/sh",
+                    "-c",
+                    "ls -la /tmp/validator_key/ && cat /tmp/validator_key/validator_key.json || echo 'Validator key not found'"
+                ]
+            )
+        )
+    
     node_id = extract_node_id(plan, node_name)
 
     return node_id, node_ip
 
 def extract_node_id(plan, node_name):
-    # Get the node ID from the node ID file that was created during initialization
-    # This avoids waiting for the RPC port which might not be available if the node crashes
-    node_id_file = "/var/tmp/{}.node_id".format(node_name)
+    """
+    Extract the actual node ID from the node container.
     
-    # Check if the node ID file exists without waiting
-    check_result = plan.exec(
-        service_name = node_name,
-        recipe = ExecRecipe(
+    Args:
+        plan: The Kurtosis plan
+        node_name: The name of the node service
+        
+    Returns:
+        The node ID as a string
+    """
+    # Wait for the node to initialize and generate a node ID
+    plan.exec(
+        service_name=node_name,
+        recipe=ExecRecipe(
             command=[
-                "/bin/sh", 
-                "-c", 
-                "test -f {} && echo 'FILE_EXISTS' || echo 'FILE_NOT_FOUND'".format(node_id_file)
+                "/bin/sh",
+                "-c",
+                """
+                # Wait for node to initialize (max 30 seconds)
+                for i in $(seq 1 30); do
+                    if [ -f /home/provenance/config/config/node_key.json ] || [ -f /home/provenance/config/node_key.json ]; then
+                        echo "Node key found after $i seconds"
+                        break
+                    fi
+                    echo "Waiting for node key to be generated ($i/30)..."
+                    sleep 1
+                done
+                
+                # Check both possible locations for node key
+                if [ -f /home/provenance/config/config/node_key.json ]; then
+                    echo "Node key found at /home/provenance/config/config/node_key.json"
+                elif [ -f /home/provenance/config/node_key.json ]; then
+                    echo "Node key found at /home/provenance/config/node_key.json"
+                else
+                    echo "ERROR: Node key not found after 30 seconds"
+                    ls -la /home/provenance/config/
+                    ls -la /home/provenance/config/config/ 2>/dev/null || echo "config/config directory does not exist"
+                    exit 1
+                fi
+                """
             ]
         )
     )
     
-    # If the file exists, try to get the node ID from it
-    if "FILE_EXISTS" in check_result["output"]:
-        # Extract the node ID from the file
-        node_id_result = plan.exec(
-            service_name = node_name,
-            recipe = ExecRecipe(
+    # Get the actual node ID from the container
+    node_id_result = plan.exec(
+        service_name=node_name,
+        recipe=ExecRecipe(
+            command=[
+                "/bin/sh",
+                "-c",
+                "provenanced tendermint show-node-id 2>/dev/null || echo 'failed'"
+            ]
+        )
+    )
+    node_id = node_id_result["output"].strip()
+    
+    # Accept any non-empty node ID that's returned from the tendermint command
+    if node_id and node_id != "failed":
+        plan.print("Extracted node ID: {} for node {}".format(node_id, node_name))
+        
+        # Write node ID to a file for reference
+        plan.exec(
+            service_name=node_name,
+            recipe=ExecRecipe(
                 command=[
-                    "/bin/sh", 
-                    "-c", 
-                    "cat {} | jq -r .node_id 2>/dev/null || echo ''".format(node_id_file)
+                    "/bin/sh",
+                    "-c",
+                    "echo '{}' > /var/tmp/{}.node_id".format(node_id, node_name)
                 ]
             )
         )
         
-        # Get the node ID from the extraction
-        node_id = node_id_result["output"].strip()
-        
-        # If node ID is empty, get it directly from the node
-        if not node_id:
-            direct_result = plan.exec(
-                service_name = node_name,
-                recipe = ExecRecipe(
-                    command=[
-                        "/bin/sh", 
-                        "-c", 
-                        "provenanced tendermint show-node-id 2>/dev/null || echo ''"
-                    ]
-                )
-            )
-            node_id = direct_result["output"].strip()
-    else:
-        # If file doesn't exist, use a default node ID for testing
-        node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
-        plan.print("WARNING: Node ID file not found. Using default node ID: {}".format(node_id))
+        return node_id
     
-    # If we still don't have a node ID, use a default
-    if not node_id:
-        node_id = "66b0a86de451b0f92e6159e13d695400e326e08b"
-        plan.print("WARNING: Could not get node ID. Using default node ID: {}".format(node_id))
-    
-    return node_id
+    plan.print("Failed to extract node ID from container")
+    plan.print("This is a critical error - cannot continue without valid node ID")
+    return "INVALID_NODE_ID_" + node_name

@@ -1,53 +1,197 @@
 #!/bin/sh
+# Simple startup script for Provenance node with improved P2P connectivity
 
-# Ultra-simplified startup script to minimize resource usage
+# Create required directories
 mkdir -p {{ .config_folder }}
-mkdir -p /var/tmp
+mkdir -p {{ .config_folder }}/config
+mkdir -p {{ .config_folder }}/data
 
-# Create node ID file early with a default value
-echo "{\"node_id\": \"66b0a86de451b0f92e6159e13d695400e326e08b\"}" > {{ .node_id_file }}
-chmod 777 {{ .node_id_file }}
+# Copy genesis file
+cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
 
-# Initialize node if not already initialized
-if [ ! -f {{ .config_folder }}/genesis.json ]; then
-    # Initialize the node with minimal output
-    {{ .binary }} init node-0 --chain-id provenance-testnet-1 > /dev/null 2>&1
+# For validator nodes, set up validator key BEFORE node initialization
+if [ "{{ .is_validator }}" = "true" ]; then
+    echo "Setting up validator node with genesis validator key BEFORE initialization..."
     
-    # Import key from mnemonic (suppress output)
-    echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover > /dev/null 2>&1
-    
-    # Import faucet key if provided (suppress output)
-    if [ -n "{{ .faucet_mnemonic }}" ]; then
-        echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover > /dev/null 2>&1
+    # Check if validator key exists
+    if [ ! -d "/tmp/validator_key" ]; then
+        echo "ERROR: Validator key directory not found at /tmp/validator_key"
+        ls -la /tmp/
+    else
+        echo "Validator key directory found at /tmp/validator_key"
+        ls -la /tmp/validator_key/
+        
+        # Copy validator key directly to both possible locations
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/priv_validator_key.json
+        
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/config/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/config/priv_validator_key.json
+        
+        # Create empty validator state files
+        echo "{}" > {{ .config_folder }}/data/priv_validator_state.json
+        chmod 600 {{ .config_folder }}/data/priv_validator_state.json
+        
+        mkdir -p {{ .config_folder }}/config/data
+        echo "{}" > {{ .config_folder }}/config/data/priv_validator_state.json
+        chmod 600 {{ .config_folder }}/config/data/priv_validator_state.json
+        
+        echo "Validator key installed BEFORE initialization:"
+        cat {{ .config_folder }}/priv_validator_key.json
     fi
-    
-    # Copy genesis file
-    cp {{ .genesis_file_path }} {{ .config_folder }}/genesis.json
-    
-    # Minimal configuration - only essential settings
-    # Use direct file writes instead of sed to reduce memory usage
-    echo 'cors_allowed_origins = ["*"]' > {{ .config_folder }}/cors.toml
-    echo 'minimum-gas-prices = "0.025nhash"' > {{ .config_folder }}/gas.toml
-    
-    # Configure p2p settings for better connectivity
-    echo 'persistent_peers = ""' > {{ .config_folder }}/p2p.toml
-    echo 'addr_book_strict = false' >> {{ .config_folder }}/p2p.toml
-    echo 'allow_duplicate_ip = true' >> {{ .config_folder }}/p2p.toml
-    
-    # Append minimal configs to existing files
-    cat {{ .config_folder }}/cors.toml >> {{ .config_folder }}/config.toml
-    cat {{ .config_folder }}/gas.toml >> {{ .config_folder }}/app.toml
-    cat {{ .config_folder }}/p2p.toml >> {{ .config_folder }}/config.toml
-    
-    # Update node ID file with actual node ID
-    NODE_ID=$({{ .binary }} tendermint show-node-id)
-    if [ -n "$NODE_ID" ]; then
-        echo "{\"node_id\": \"$NODE_ID\"}" > {{ .node_id_file }}
-    fi
-    
-    # Clean up temp files
-    rm -f {{ .config_folder }}/cors.toml {{ .config_folder }}/gas.toml {{ .config_folder }}/p2p.toml
 fi
 
-# Start the node in foreground with minimal flags
-exec {{ .binary }} start --home={{ .config_folder }} {{ .rpc_options }} {{ .seed_options }}
+# Initialize node with minimal flags - AFTER validator key setup
+# First, backup the validator key if it exists
+if [ "{{ .is_validator }}" = "true" ] && [ -f {{ .config_folder }}/priv_validator_key.json ]; then
+    echo "Backing up existing validator key before initialization"
+    cp {{ .config_folder }}/priv_validator_key.json /tmp/validator_key_backup.json
+fi
+
+# Initialize the node
+{{ .binary }} init node-0 --chain-id provenance-testnet-1 --home={{ .config_folder }} 2>/dev/null || echo "Node already initialized"
+
+# Restore the validator key if it was backed up
+if [ "{{ .is_validator }}" = "true" ] && [ -f /tmp/validator_key_backup.json ]; then
+    echo "Restoring validator key after initialization"
+    cp /tmp/validator_key_backup.json {{ .config_folder }}/priv_validator_key.json
+    cp /tmp/validator_key_backup.json {{ .config_folder }}/config/priv_validator_key.json
+    chmod 600 {{ .config_folder }}/priv_validator_key.json
+    chmod 600 {{ .config_folder }}/config/priv_validator_key.json
+fi
+
+# Verify validator key is still in place after initialization
+if [ "{{ .is_validator }}" = "true" ]; then
+    if [ -f {{ .config_folder }}/priv_validator_key.json ]; then
+        echo "Validator key still present after initialization"
+        cat {{ .config_folder }}/priv_validator_key.json
+    else
+        echo "ERROR: Validator key missing after initialization, restoring it"
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/priv_validator_key.json
+    fi
+    
+    if [ -f {{ .config_folder }}/config/priv_validator_key.json ]; then
+        echo "Validator key in config still present after initialization"
+        cat {{ .config_folder }}/config/priv_validator_key.json
+    else
+        echo "ERROR: Validator key in config missing after initialization, restoring it"
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/config/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/config/priv_validator_key.json
+    fi
+fi
+
+# Import keys with minimal memory usage
+echo "{{ .mnemonic }}" | {{ .binary }} keys add node-0 {{ .keyring_flags }} --recover --home={{ .config_folder }} 2>/dev/null || echo "Key already exists"
+
+# Import faucet key if provided
+if [ -n "{{ .faucet_mnemonic }}" ]; then
+    echo "{{ .faucet_mnemonic }}" | {{ .binary }} keys add faucet {{ .keyring_flags }} --recover --home={{ .config_folder }} 2>/dev/null || echo "Faucet key already exists"
+fi
+
+# Additional validator setup after initialization
+if [ "{{ .is_validator }}" = "true" ]; then
+    echo "Performing additional validator setup after initialization..."
+    
+    # Set validator mode in config.toml
+    sed -i 's/mode = "full"/mode = "validator"/g' {{ .config_folder }}/config/config.toml
+    
+    # Force reset node to ensure validator key is properly recognized
+    echo "Forcing node reset to ensure validator key is properly recognized"
+    {{ .binary }} tendermint unsafe-reset-all --home={{ .config_folder }}
+    
+    # Verify validator key is still in place after reset
+    if [ -f {{ .config_folder }}/priv_validator_key.json ]; then
+        echo "Validator key still present after reset"
+        cat {{ .config_folder }}/priv_validator_key.json
+    else
+        echo "ERROR: Validator key missing after reset, restoring it"
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/priv_validator_key.json
+    fi
+    
+    if [ -f {{ .config_folder }}/config/priv_validator_key.json ]; then
+        echo "Validator key in config still present after reset"
+        cat {{ .config_folder }}/config/priv_validator_key.json
+    else
+        echo "ERROR: Validator key in config missing after reset, restoring it"
+        cp /tmp/validator_key/validator_key.json {{ .config_folder }}/config/priv_validator_key.json
+        chmod 600 {{ .config_folder }}/config/priv_validator_key.json
+    fi
+    
+    # Create empty validator state files again after reset
+    echo "{}" > {{ .config_folder }}/data/priv_validator_state.json
+    chmod 600 {{ .config_folder }}/data/priv_validator_state.json
+    
+    mkdir -p {{ .config_folder }}/config/data
+    echo "{}" > {{ .config_folder }}/config/data/priv_validator_state.json
+    chmod 600 {{ .config_folder }}/config/data/priv_validator_state.json
+    
+    echo "Final validator key check:"
+    cat {{ .config_folder }}/priv_validator_key.json
+fi
+
+# Import validator key if provided - MUST be done BEFORE any config changes
+if [ -f /usr/local/bin/validator-config/validator-config.sh ]; then
+    chmod +x /usr/local/bin/validator-config/validator-config.sh
+    /usr/local/bin/validator-config/validator-config.sh || echo "Validator config import failed, continuing anyway"
+    
+    # Verify validator key was copied correctly
+    if [ -f {{ .config_folder }}/priv_validator_key.json ]; then
+        echo "Validator key found at {{ .config_folder }}/priv_validator_key.json"
+        cat {{ .config_folder }}/priv_validator_key.json
+    else
+        echo "ERROR: Validator key not found at {{ .config_folder }}/priv_validator_key.json"
+    fi
+fi
+
+# Enhanced P2P configuration for better connectivity
+sed -i 's/create_empty_blocks = false/create_empty_blocks = true/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/create_empty_blocks_interval = "0s"/create_empty_blocks_interval = "5s"/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/timeout_commit = "5s"/timeout_commit = "5s"/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/timeout_propose = "3s"/timeout_propose = "1s"/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/pex = false/pex = true/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/addr_book_strict = true/addr_book_strict = false/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/allow_duplicate_ip = false/allow_duplicate_ip = true/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/max_num_inbound_peers = 40/max_num_inbound_peers = 100/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/max_num_outbound_peers = 10/max_num_outbound_peers = 50/g' {{ .config_folder }}/config/config.toml || true
+
+# Set seed options if provided
+if [ -n "{{ .seed_options }}" ]; then
+    # Add both seeds and persistent peers for better connectivity
+    sed -i 's/^seeds = ".*"/seeds = "{{ .seed_options }}"/g' {{ .config_folder }}/config/config.toml || true
+    sed -i 's/^persistent_peers = ".*"/persistent_peers = "{{ .seed_options }}"/g' {{ .config_folder }}/config/config.toml || true
+    echo "Configured seed node: {{ .seed_options }}"
+fi
+
+# Set minimum gas prices
+sed -i 's/^minimum-gas-prices = ".*"/minimum-gas-prices = "0.025nhash"/g' {{ .config_folder }}/config/app.toml || true
+
+# Set pruning to nothing to avoid OOM issues
+sed -i 's/^pruning = ".*"/pruning = "nothing"/g' {{ .config_folder }}/config/app.toml || true
+
+# Ensure validator mode is set
+sed -i 's/^mode = ".*"/mode = "validator"/g' {{ .config_folder }}/config/config.toml || true
+
+# Enable CORS for API access
+sed -i 's/^cors_allowed_origins = \[\]/cors_allowed_origins = \["*"\]/g' {{ .config_folder }}/config/config.toml || true
+
+# Force validator to produce blocks
+sed -i 's/^skip_timeout_commit = true/skip_timeout_commit = false/g' {{ .config_folder }}/config/config.toml || true
+sed -i 's/^timeout_commit = ".*"/timeout_commit = "5s"/g' {{ .config_folder }}/config/config.toml || true
+
+# Enable state sync for faster startup
+sed -i 's/^fast_sync = true/fast_sync = false/g' {{ .config_folder }}/config/config.toml || true
+
+# Set validator to produce blocks even without transactions
+echo "Configured node to produce blocks in validator mode"
+
+# Start node with optimized flags
+exec {{ .binary }} start --home={{ .config_folder }} {{ .rpc_options }} \
+    --p2p.pex=true \
+    --p2p.seed_mode=false \
+    --consensus.create_empty_blocks=true \
+    --consensus.create_empty_blocks_interval=5s \
+    --rpc.laddr=tcp://0.0.0.0:26657 \
+    --pruning=nothing \
+    --log_level=info

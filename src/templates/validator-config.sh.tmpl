@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Set validator mode in config.toml
+sed -i 's/mode = "full"/mode = "validator"/g' {{ .config_folder }}/config/config.toml
+
+# Ensure we're using the validator key
+sed -i 's/priv_validator_laddr = ""/priv_validator_laddr = "tcp://0.0.0.0:26658"/g' {{ .config_folder }}/config/config.toml
+
+# Set fast_sync to false for validator
+sed -i 's/fast_sync = true/fast_sync = false/g' {{ .config_folder }}/config/config.toml
+
+# Set additional consensus parameters
+sed -i 's/timeout_prevote = ".*"/timeout_prevote = "500ms"/g' {{ .config_folder }}/config/config.toml
+sed -i 's/timeout_precommit = ".*"/timeout_precommit = "500ms"/g' {{ .config_folder }}/config/config.toml
+sed -i 's/timeout_prevote_delta = ".*"/timeout_prevote_delta = "250ms"/g' {{ .config_folder }}/config/config.toml
+sed -i 's/timeout_precommit_delta = ".*"/timeout_precommit_delta = "250ms"/g' {{ .config_folder }}/config/config.toml
+
+echo "Configured node to produce blocks in validator mode"
